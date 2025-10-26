@@ -1,0 +1,37 @@
+{
+	"linter": {
+		"enabled": false,
+		"rules": {
+			"suspicious": {
+				"noExplicitAny": "off",
+				"noShadowRestrictedNames": "off"
+			},
+			"complexity": {
+				"useArrowFunction": "off",
+				"noThisInStatic": "off"
+			}
+		}
+	},
+	"formatter": {
+		"indentStyle": "tab",
+		"indentWidth": 4,
+		"lineWidth": 320,
+		"lineEnding": "lf"
+	},
+	"assist": {
+		"actions": {
+			"source": {
+				"organizeImports": "off"
+			}
+		}
+	},
+	"javascript": {
+		"formatter": {
+			"semicolons": "always",
+			"quoteStyle": "double"
+		}
+	},
+	"files": {
+		"includes": ["!node_modules/**/*", "!builds/**/*", "!.dev/**/*", "**/*.*"]
+	}
+}
