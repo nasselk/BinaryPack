@@ -1,6 +1,6 @@
-# BitPack
+# BinaryPack
 
-BitPack is a small, focused TypeScript library for compact binary packing and unpacking with bit-level control.
+BinaryPack is a small, focused TypeScript library for compact binary packing and unpacking with bit-level control.
 
 It provides two primary classes: `BufferWriter` for writing binary data (including bit-level fields, LEB128 varints and strings) and `BufferReader` for reading the same formats back. The implementation is purposely low-level and zero-dependency — useful for game networking, custom serialization formats, or any performance-sensitive encoding work.
 

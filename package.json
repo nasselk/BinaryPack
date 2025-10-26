@@ -1,19 +1,19 @@
 {
 	"type": "module",
-	"name": "bitpack",
+	"name": "binarypack",
 	"author": "DarePhoenix",
 	"description": "Typescript byte packing library with bit level control.",
 	"version": "1.0.0",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/nasselk/BitPack.git"
+		"url": "git+https://github.com/nasselk/BinaryPack.git"
 	},
 	"bugs": {
-		"url": "https://github.com/nasselk/BitPack/issues",
+		"url": "https://github.com/nasselk/BinaryPack/issues",
 		"email": "darephoenixgamer@gmail.com"
 	},
-	"homepage": "https://github.com/nasselk/BitPack",
+	"homepage": "https://github.com/nasselk/BinaryPack",
 	"scripts": {
 		"format": "biome format --write"
 	},
