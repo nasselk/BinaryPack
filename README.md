@@ -6,9 +6,9 @@ It provides two primary classes: `BufferWriter` for writing binary data (includi
 
 Highlights
 - Bit-level writes and reads (non-byte-aligned fields)
-- Typed reads/writes for common primitives (uint8/16/32/64, int, float16/32/64)
-- Variable-length integers (LEB128) and zigzag encoding for signed ints
-- String and buffer helpers (optional size prefixes)
+- Typed reads/writes for common primitives (int8/16/32/64, uint8/16/32/64, float16/32/64) with control of the endianness
+- Variable-length unsigned integers (LEB128) and zigzag encoding for signed ints
+- String and buffer writers (with optional size prefixes)
 - Small, strict TypeScript codebase with comprehensive in-code documentation
 
 Table of contents
@@ -23,7 +23,6 @@ Table of contents
 - BufferWriter: sequential and bit-level writes, automatic expansion (optional), typed set methods and convenience helpers
 - BufferReader: sequential and bit-level reads, peeking, buffer/string read helpers and convenience methods
 - Precision helpers for encoding floats into a fixed number of bits
-- Utility helpers (clamp) and small, readable implementation
 
 ## Quick example
 
@@ -42,8 +41,8 @@ writer.writeBits(5, 3);            // write 3-bit value (value 5)
 writer.writeString("hello", true); // write string with 2-byte length prefix
 writer.writeInt(-42);              // zigzag + LEB128 encoded signed integer
 
-// Get written bytes (throws if the writer buffer is not filled; shrink otherwise)
-const bytes = writer.buffer.subarray(0, writer.offset); // slice to used portion
+// Get written bytes (throws if the writer buffer is not filled and is not resizable; shrink otherwise)
+const bytes = writer.bytes;
 
 // Reader: read back the same values
 const reader = new BufferReader(bytes);
@@ -100,9 +99,10 @@ console.log(decoded); // ~75.5
 
 ## API highlights
 
-- `BufferWriter` — write methods: `writeUint8/16/32/64`, `writeInt`, `writeFloat32/64/16`, `writeBits`, `writeString`, `writeBuffer`, `writeUint` (varint)
-- `BufferReader` — read methods: `readUint8/16/32/64`, `readInt`, `readFloat32/64/16`, `readBits`, `readString`, `readBuffer`, `readUint` (varint)
+- `BufferWriter` — write methods: `writeInt8/16/32/64` `writeUint8/16/32/64`, `writeFloat32/64/16`, `writeBits`, `writeString`, `writeBuffer`, `writeInt`, `writeUint` (LEB128)
+- `BufferReader` — read methods: `readUint8/16/32/64`, `readFloat32/64/16`, `readBits`, `readString`, `readBuffer`, `readInt` `readUint` (LEB128)
 - Precision helpers: `BufferWriter.toPrecision()` / `BufferReader.fromPrecision()`
+- Advancement visualisation: `toString` shows a formatted representation of the buffer reading/writing, taking in account the internal state
 
 Read the inline JSDoc comments in `src/reader.ts` and `src/writer.ts` for more details and parameter options.
 
@@ -123,10 +123,6 @@ npx tsc --project tsconfig.json
 ```
 
 3. Run examples directly with Node (if using ESM and TypeScript is compiled to JS), or run with ts-node / bun if you prefer.
-
-## Contributing
-
-Contributions are welcome. Please add tests for new functionality and follow TypeScript strictness. Keep APIs stable; add breaking changes only with major version bumps.
 
 ## License
 
