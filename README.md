@@ -2,26 +2,30 @@
 
 BinaryPack is a small, focused TypeScript library for compact binary packing and unpacking with bit-level control.
 
-It provides two primary classes: `BufferWriter` for writing binary data (including bit-level fields, LEB128 varints and strings) and `BufferReader` for reading the same formats back. The implementation is purposely low-level and zero-dependency — useful for game networking, custom serialization formats, or any performance-sensitive encoding work.
+It provides two primary classes: [`BufferWriter`](./src/writer.ts) for writing binary data (including bit-level fields, LEB128 varints and strings) and [`BufferReader`](./src/reader.ts) for reading the same formats back. The implementation is purposely low-level and zero-dependency — useful for game networking, custom serialization formats, or any performance-sensitive encoding work.
 
-Highlights
+
+## Overview
+
 - Bit-level writes and reads (non-byte-aligned fields)
 - Typed reads/writes for common primitives (int8/16/32/64, uint8/16/32/64, float16/32/64) with control of the endianness
 - Variable-length unsigned integers (LEB128) and zigzag encoding for signed ints
 - String and buffer writers (with optional size prefixes)
 - Small, strict TypeScript codebase with comprehensive in-code documentation
 
-Table of contents
-- Features
-- Quick example
-- API highlights
-- Building / running locally
-- License
+
+## Table of contents
+- [Features](#features)
+- [Quick example](#quick-example)
+- [API highlights](#api-highlights)
+- [Building / running locally](#building--running-locally)
+- [License](#license)
+
 
 ## Features
 
-- BufferWriter: sequential and bit-level writes, automatic expansion (optional), typed set methods and convenience helpers
-- BufferReader: sequential and bit-level reads, peeking, buffer/string read helpers and convenience methods
+- [`BufferWriter`](./src/writer.ts): sequential and bit-level writes, automatic expansion (optional), typed set methods and convenience helpers
+- [`BufferReader`](./src/reader.ts): sequential and bit-level reads, peeking, buffer/string read helpers and convenience methods
 - Precision helpers for encoding floats into a fixed number of bits
 
 ## Quick example
@@ -99,8 +103,8 @@ console.log(decoded); // ~75.5
 
 ## API highlights
 
-- `BufferWriter` — write methods: `writeInt8/16/32/64` `writeUint8/16/32/64`, `writeFloat32/64/16`, `writeBits`, `writeString`, `writeBuffer`, `writeInt`, `writeUint` (LEB128)
-- `BufferReader` — read methods: `readUint8/16/32/64`, `readFloat32/64/16`, `readBits`, `readString`, `readBuffer`, `readInt` `readUint` (LEB128)
+- [`BufferWriter`](./src/writer.ts) — write methods: `writeInt8/16/32/64` `writeUint8/16/32/64`, `writeFloat32/64/16`, `writeBits`, `writeString`, `writeBuffer`, `writeInt`, `writeUint` (LEB128)
+- [`BufferReader`](./src/reader.ts) — read methods: `readUint8/16/32/64`, `readFloat32/64/16`, `readBits`, `readString`, `readBuffer`, `readInt` `readUint` (LEB128)
 - Precision helpers: `BufferWriter.toPrecision()` / `BufferReader.fromPrecision()`
 - Advancement visualisation: `toString` shows a formatted representation of the buffer reading/writing, taking in account the internal state
 
