@@ -4,6 +4,12 @@ BinaryPack is a small, focused TypeScript library for compact binary packing and
 
 It provides two primary classes: [`BufferWriter`](./src/writer.ts) for writing binary data (including bit-level fields, LEB128 varints and strings) and [`BufferReader`](./src/reader.ts) for reading the same formats back. The implementation is purposely low-level and zero-dependency — useful for game networking, custom serialization formats, or any performance-sensitive encoding work.
 
+> **⚠️ Warning: Pre-release Status**  
+> This library is **not yet published to npm**. It aims to become an npm package in the future, but for now:
+> - **No versioning**: You'll need to manually check the repository for updates and copy the source files
+> - **TypeScript source only**: The library is distributed as TypeScript files, so it's not directly suitable for JavaScript environments without a transpiler/build step
+> - **Manual integration**: You'll need to copy the `src/` files into your project or reference them directly
+
 
 ## Overview
 
@@ -19,6 +25,7 @@ It provides two primary classes: [`BufferWriter`](./src/writer.ts) for writing b
 - [Quick example](#quick-example)
 - [API highlights](#api-highlights)
 - [Building / running locally](#building--running-locally)
+- [Notes](#notes)
 - [License](#license)
 
 
@@ -45,7 +52,7 @@ writer.writeBits(5, 3);            // write 3-bit value (value 5)
 writer.writeString("hello", true); // write string with 2-byte length prefix
 writer.writeInt(-42);              // zigzag + LEB128 encoded signed integer
 
-// Get written bytes (throws if the writer buffer is not filled and is not resizable; shrink otherwise)
+// Get written bytes (warns if the writer buffer is not filled and is not resizable; shrink otherwise)
 const bytes = writer.bytes;
 
 // Reader: read back the same values
@@ -127,6 +134,10 @@ npx tsc --project tsconfig.json
 ```
 
 3. Run examples directly with Node (if using ESM and TypeScript is compiled to JS), or run with ts-node / bun if you prefer.
+
+## Notes
+
+The inline documentation (JSDoc comments) and portions of this README were partially written with AI assistance.
 
 ## License
 

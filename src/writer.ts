@@ -1100,15 +1100,16 @@ class BufferWriter {
 	 * Gets the filled portion of the buffer as a Uint8Array.
 	 *
 	 * @returns The underlying buffer.
-	 *
-	 * @throws {Error} If the buffer is not fully filled.
-	 *
+	 * 
+	 * @remarks
+	 * If the buffer is not fully filled, a warning is logged.
+	 * 
 	 * @example
 	 * const data = writer.bytes;
 	 */
 	public get bytes(): Uint8Array {
 		if (this.offset < this.byteLength) {
-			throw new Error(`Buffer not filled ${this.offset} ${this.byteLength}`);
+			console.warn(`Buffer not fully filled: ${this.offset}/${this.byteLength}`);
 		}
 
 		return this.buffer;
