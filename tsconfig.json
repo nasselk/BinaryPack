@@ -2,11 +2,13 @@
 	"compilerOptions": {
 		"strict": true,
 		"target": "es2022",
-		"module": "ESNext",
+		"module": "esnext",
 		"moduleResolution": "bundler",
 		"resolveJsonModule": true,
-		"incremental": true,
-		"noEmitOnError": false,
+		"declaration": true,
+		"declarationMap": true,
+		"sourceMap": true,
+		"noEmitOnError": true,
 		"skipLibCheck": true,
 		"noImplicitReturns": true,
 		"skipDefaultLibCheck": true,
@@ -16,8 +18,10 @@
 		"noImplicitOverride": true,
 		"noUnusedLocals": true,
 		"esModuleInterop": true,
-		"outDir": "./builds/",
-		"tsBuildInfoFile": "./builds/tsconfig.tsbuildinfo",
-		"lib": ["ESNext"]
-	}
+		"rootDir": "./src/",
+		"outDir": "./dist/",
+		"lib": ["ESNext", "DOM"],
+		"types": ["node", "bun"]
+	},
+	"include": ["src/**/*.ts", "test/**/*.ts"],
 }

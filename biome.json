@@ -32,6 +32,6 @@
 		}
 	},
 	"files": {
-		"includes": ["!node_modules/**/*", "!builds/**/*", "!.dev/**/*", "**/*.*"]
+		"includes": ["!node_modules/", "!dist", "**/*.*"]
 	}
 }

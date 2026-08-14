@@ -4,12 +4,6 @@ BinaryPack is a small, focused TypeScript library for compact binary packing and
 
 It provides two primary classes: [`BufferWriter`](./src/writer.ts) for writing binary data (including bit-level fields, LEB128 varints and strings) and [`BufferReader`](./src/reader.ts) for reading the same formats back. The implementation is purposely low-level and zero-dependency — useful for game networking, custom serialization formats, or any performance-sensitive encoding work.
 
-> **⚠️ Warning: Pre-release Status**  
-> This library is **not yet published to npm**. It aims to become an npm package in the future, but for now:
-> - **No versioning**: You'll need to manually check the repository for updates and copy the source files
-> - **TypeScript source only**: The library is distributed as TypeScript files, so it's not directly suitable for JavaScript environments without a transpiler/build step
-> - **Manual integration**: You'll need to copy the `src/` files into your project or reference them directly
-
 
 ## Overview
 
@@ -21,12 +15,30 @@ It provides two primary classes: [`BufferWriter`](./src/writer.ts) for writing b
 
 
 ## Table of contents
+- [Installation](#installation)
 - [Features](#features)
 - [Quick example](#quick-example)
 - [API highlights](#api-highlights)
 - [Building / running locally](#building--running-locally)
+- [Releasing](#releasing)
 - [Notes](#notes)
 - [License](#license)
+
+
+## Installation
+
+This package is not on the npm registry — install it straight from GitHub:
+
+```pwsh
+npm install github:nasselk/BinaryPack          # tracks the default branch
+npm install github:nasselk/BinaryPack#v0.1.0   # pinned to a tag
+```
+
+ESM-only, no runtime dependencies. Requires Node.js 20+ (or Bun / any modern bundler).
+
+```ts
+import { BufferWriter, BufferReader } from "@nasselk/binarypack";
+```
 
 
 ## Features
@@ -37,13 +49,10 @@ It provides two primary classes: [`BufferWriter`](./src/writer.ts) for writing b
 
 ## Quick example
 
-The following examples assume you run directly against the `src` files (no build) using Node.js with ESM enabled, or that you've built the project with `tsc` and import from the compiled output.
-
 Roundtrip: write some values and read them back
 
 ```ts
-import { BufferWriter } from "./src/writer.js";
-import { BufferReader } from "./src/reader.js";
+import { BufferWriter, BufferReader } from "@nasselk/binarypack";
 
 // Writer: create a resizable writer and write values
 const writer = new BufferWriter();
@@ -97,8 +106,7 @@ console.log(r2.readUint(), r2.readInt()); // 300, -15
 Precision example (encode a float into fixed bits)
 
 ```ts
-import { BufferWriter } from "./src/writer.js";
-import { BufferReader } from "./src/reader.js";
+import { BufferWriter, BufferReader } from "@nasselk/binarypack";
 // encode float 0..100 into 12 bits
 const encoded = BufferWriter.toPrecision(75.5, 100, 12);
 const w3 = new BufferWriter();
@@ -121,19 +129,31 @@ Read the inline JSDoc comments in `src/reader.ts` and `src/writer.ts` for more d
 
 Requirements: Node.js (v20+ recommended) and npm.
 
-1. Install dev dependencies (optional, for formatting/type checks):
-
 ```pwsh
-npm install
+bun install        # install dev dependencies
+bun test		   # run tests
+bun build          # compile src/ -> dist/ (JS + .d.ts + sourcemaps)
+bun run type:check # type-check without emitting
+bun run format     # biome
 ```
 
-2. Type-check or compile (TypeScript):
+## Releasing
+
+`dist/` is committed to the repository so consumers get a prebuilt package with no install-time build step. That means **the build must be rerun before every push**, or consumers will silently receive stale code:
 
 ```pwsh
-npx tsc --project tsconfig.json
+bun run build
+git add -A
+git commit -m "..."
+git push
 ```
 
-3. Run examples directly with Node (if using ESM and TypeScript is compiled to JS), or run with ts-node / bun if you prefer.
+To cut a pinnable version, bump `version` in `package.json` and tag it:
+
+```pwsh
+git tag v0.1.0
+git push --tags
+```
 
 ## Notes
 

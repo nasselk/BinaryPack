@@ -1,4 +1,4 @@
-import { endianness, createBuffer, textEncoder, type Buffers, type BufferView } from "./buffer.js";
+import { endianness, createBuffer, type Buffers, type BufferSlice } from "./buffer.js";
 
 import { clamp } from "./utils.js";
 
@@ -26,7 +26,10 @@ import { clamp } from "./utils.js";
  * // Create fixed-size writer
  * const fixedWriter = new BufferWriter(100, false);
  */
-class BufferWriter {
+export class BufferWriter {
+	/** The text encoder used for writing UTF-8 encoded strings. */
+	public static readonly TEXT_ENCODER = new TextEncoder();
+
 	/** Whether the buffer can automatically expand when capacity is exceeded. */
 	private readonly resizable: boolean;
 
@@ -69,7 +72,7 @@ class BufferWriter {
 	 * @param clone - If true, creates a copy of the buffer. If false, uses the buffer directly. Defaults to false.
 	 * @param offset - Starting byte offset within the buffer. Defaults to 0.
 	 */
-	public constructor(buffer: Buffers, resizable?: boolean, littleEndian?: boolean, clone?: boolean, offset?: number);
+	public constructor(buffer: Buffers, resizable?: boolean, littleEndian?: boolean, clone?: boolean, slice?: { readonly start: number; readonly byteLength?: number });
 
 	/**
 	 * Creates a new BufferWriter instance.
@@ -90,10 +93,10 @@ class BufferWriter {
 	 * // Create from existing buffer
 	 * const fromBuffer = new BufferWriter(existingBuffer, true, true);
 	 */
-	public constructor(allocation?: number | Buffers, resizable?: boolean, littleEndian?: boolean, clone?: boolean, offset?: number);
+	public constructor(allocation?: number | Buffers, resizable?: boolean, littleEndian?: boolean, clone?: boolean, slice?: { readonly start: number; readonly byteLength?: number });
 
-	public constructor(allocation: number | Buffers = 0, resizable: boolean = allocation === 0, littleEndian: boolean = endianness, clone: boolean = false, offset: number = 0) {
-		this.buffer = createBuffer(allocation, clone, offset, false);
+	public constructor(allocation: number | Buffers = 0, resizable: boolean = allocation === 0, littleEndian: boolean = endianness, clone: boolean = false, slice?: { readonly start: number; readonly byteLength?: number }) {
+		this.buffer = createBuffer(allocation, clone, slice);
 
 		this.view = new DataView(this.buffer.buffer, this.buffer.byteOffset, this.buffer.byteLength);
 		this.byteLength = this.view.byteLength;
@@ -162,7 +165,7 @@ class BufferWriter {
 	 * @param value - The integer value to evaluate.
 	 * @param signed - Whether the value is signed.
 	 * @returns The number of bits required to represent the value.
-	 * 
+	 *
 	 * @example
 	 * BufferWriter.requiredBits(100); // 7
 	 * BufferWriter.requiredBits(-100, true); // 7
@@ -220,7 +223,7 @@ class BufferWriter {
 	 * BufferWriter.stringByteLength("Hello 🌍"); // 10 (emoji is 4 bytes)
 	 */
 	public static stringByteLength(text: string): number {
-		return textEncoder.encode(text).length;
+		return BufferWriter.TEXT_ENCODER.encode(text).length;
 	}
 
 	/**
@@ -234,7 +237,7 @@ class BufferWriter {
 	 * // Uint8Array(5) [72, 101, 108, 108, 111]
 	 */
 	public static writeTextBuffer(text: string): Uint8Array {
-		const buffer = textEncoder.encode(text);
+		const buffer = BufferWriter.TEXT_ENCODER.encode(text);
 
 		return buffer;
 	}
@@ -252,10 +255,6 @@ class BufferWriter {
 	 * @throws {RangeError} If bits is not in the range [1, 53].
 	 * @throws {RangeError} If value is outside the valid range for the specified number of bits.
 	 * @throws {RangeError} If buffer overflow occurs and buffer is not resizable.
-	 *
-	 * @remarks
-	 * This method automatically optimizes byte-aligned writes of 8, 16, or 32 bits
-	 * by delegating to the appropriate typed write method for better performance.
 	 *
 	 * @example
 	 * // Write a 3-bit value (0-7)
@@ -280,17 +279,6 @@ class BufferWriter {
 			bitIndex = 0;
 		}
 
-		if (bitIndex === 0 && bitOffset === byteOffset) {
-			switch (bits) {
-				case 8:
-					return signed ? this.writeInt8(value, undefined, advance) : this.writeUint8(value, offset, advance);
-				case 16:
-					return signed ? this.writeInt16(value, undefined, advance) : this.writeUint16(value, offset, advance);
-				case 32:
-					return signed ? this.writeInt32(value, undefined, advance) : this.writeUint32(value, offset, advance);
-			}
-		}
-
 		const min = BufferWriter.rangeMin(bits, signed);
 		const max = BufferWriter.rangeMax(bits, signed);
 
@@ -302,8 +290,11 @@ class BufferWriter {
 			value -= min;
 		}
 
-		//const requiredBytes = Math.ceil((this.bitIndex + bits) / 8);
-		//this.ensureCapacity(requiredBytes, this.bitIndex === 0 ? byteOffset : bitOffset);
+		// The loop indexes the buffer directly, and out-of-range writes on a Uint8Array are dropped silently rather than throwing,
+		// so every byte about to be touched has to exist first. Any bits left in the current byte are already allocated.
+		const spare = bitIndex === 0 ? 0 : 8 - bitIndex;
+
+		this.ensureCapacity(Math.ceil(Math.max(0, bits - spare) / 8), byteOffset);
 
 		while (bits > 0) {
 			if (bitIndex === 0) {
@@ -334,7 +325,7 @@ class BufferWriter {
 
 		if (advance) {
 			this.offset = byteOffset;
-			this.bitOffset = bitOffset;
+			this.bitOffset = bitIndex === 0 ? byteOffset : bitOffset;
 			this.bitIndex = bitIndex;
 		}
 
@@ -379,7 +370,29 @@ class BufferWriter {
 		if (byte) {
 			return this.writeUint8(value ? 1 : 0, offset, advance);
 		} else {
-			return this.writeBits(value);
+			const bitIndex = this.bitIndex;
+			const commit = advance ?? true;
+
+			if (bitIndex === 0) {
+				// Start a fresh byte at the write cursor (writeBits overwrites rather than ORs here)
+				const target = this.offset;
+
+				this.buffer[target] = value;
+
+				if (commit) {
+					this.bitOffset = target;
+					this.offset = target + 1;
+					this.bitIndex = 1;
+				}
+			} else {
+				this.buffer[this.bitOffset] |= value << bitIndex;
+
+				if (commit) {
+					this.bitIndex = (bitIndex + 1) & 7;
+				}
+			}
+
+			return this;
 		}
 	}
 
@@ -642,9 +655,9 @@ class BufferWriter {
 			const bitsNeeded = value === 0 ? 1 : 32 - Math.clz32(value);
 			const bytesNeeded = Math.ceil(bitsNeeded / 7);
 
-			this.ensureCapacity(bytesNeeded, offset); 
+			this.ensureCapacity(bytesNeeded, offset);
 		}
-		
+
 		while (value >= 0x80) {
 			this.writeUint8((value & 0x7f) | 0x80, offset, false);
 			value >>>= 7;
@@ -675,16 +688,14 @@ class BufferWriter {
 	 * Uses zigzag encoding to map signed integers to unsigned:
 	 * - 0 → 0, -1 → 1, 1 → 2, -2 → 3, 2 → 4, etc.
 	 * Then encodes with LEB128.
-	 * 
+	 *
 	 * @example
 	 * writer.writeInt(-1);    // Uses 1 byte
 	 * writer.writeInt(-100);  // Uses 2 bytes
 	 * writer.writeInt(10000); // Uses 2 bytes
 	 */
 	public writeInt(value: number = 0, offset: number = this.offset, advance: boolean = true): this {
-		// Zigzag encode: (n << 1) ^ (n >> 31)
-		// Maps signed to unsigned: 0→0, -1→1, 1→2, -2→3, 2→4, etc.
-		const zigzag = (value << 1) ^ (value >> 31);
+		const zigzag = value >= 0 ? value * 2 : -value * 2 - 1;
 
 		return this.writeUint(zigzag, offset, advance);
 	}
@@ -692,13 +703,14 @@ class BufferWriter {
 	/**
 	 * Writes a buffer of bytes to the current position.
 	 *
-	 * @param buffer - The buffer to write. Can be an array, ArrayBuffer, or TypedArray.
+	 * @param buffer - The buffer to write. Can be any buffer type.
 	 * @param writeSize - If true, writes a uint16 size prefix before the buffer data.
+	 * @param slice - Optional byte range of the source to write. Defaults to the whole buffer.
 	 * @param offset - The byte offset to write to.
 	 * @param advance - Whether to advance the write position.
 	 * @returns This writer for method chaining.
 	 *
-	 * @throws {RangeError} If buffer overflow occurs and buffer is not resizable.
+	 * @throws {RangeError} If the slice falls outside the source buffer, or if buffer overflow occurs and the buffer is not resizable.
 	 *
 	 * @example
 	 * // Write buffer without size prefix
@@ -707,17 +719,16 @@ class BufferWriter {
 	 * // Write buffer with 2-byte size prefix
 	 * writer.writeBuffer(new Uint8Array([1, 2, 3]), true);
 	 *
-	 * // Write array
-	 * writer.writeBuffer([255, 128, 64]);
+	 * // Write only 3 bytes, starting at byte 2 of the source
+	 * writer.writeBuffer(data, false, { start: 2, byteLength: 3 });
+	 *
+	 * // Write everything from byte 4 onwards
+	 * writer.writeBuffer(data, false, { start: 4 });
 	 */
-	public writeBuffer(buffer: BufferView | ArrayBuffer, writeSize: boolean = false, offset: number = this.offset, advance?: boolean): this {
-		let length = 0;
-
-		if (buffer instanceof ArrayBuffer) {
-			buffer = new Uint8Array(buffer);
-		}
-
-		length = buffer.byteLength;
+	public writeBuffer(buffer: Buffers, writeSize: boolean = false, slice?: BufferSlice, offset: number = this.offset, advance?: boolean): this {
+		// Normalises to a byte view, so multi-byte element types are copied as raw bytes and the slice is applied
+		const source = createBuffer(buffer, false, slice);
+		const length = source.byteLength;
 
 		if (writeSize) {
 			this.writeUint16(length, offset, advance);
@@ -727,7 +738,7 @@ class BufferWriter {
 
 		this.advance(length, offset, advance);
 
-		this.buffer.set(buffer, offset);
+		this.buffer.set(source, offset);
 
 		return this;
 	}
@@ -736,7 +747,7 @@ class BufferWriter {
 	 * Writes a UTF-8 encoded text string to the buffer.
 	 *
 	 * @param text - The string to write.
-	 * @param writeSize - If true, writes a uint16 size prefix before the text data.
+	 * @param writeSize - If true, writes a uint16 size prefix before the text data. Defaults to true.
 	 * @param offset - The byte offset to write to.
 	 * @param advance - Whether to advance the write position.
 	 * @returns This writer for method chaining.
@@ -750,19 +761,19 @@ class BufferWriter {
 	 * // Write string with 2-byte length prefix
 	 * writer.writeString("Hello", true);
 	 */
-	public writeString(text: string = "", writeSize: boolean = false, offset: number = this.offset, advance: boolean = offset === this.offset): this {
+	public writeString(text: string = "", writeSize: boolean = true, offset: number = this.offset, advance: boolean = offset === this.offset): this {
 		// If resizable, need to create a buffer first to know the size and allow for expansion
 		if (this.resizable) {
-			const buffer = textEncoder.encode(text);
+			const buffer = BufferWriter.TEXT_ENCODER.encode(text);
 
-			this.writeBuffer(buffer, writeSize, offset, advance);	
+			this.writeBuffer(buffer, writeSize, undefined, offset, advance);
 		} else {
 			if (writeSize) {
 				offset += 2;
 			}
 
 			const subarray = this.buffer.subarray(offset);
-			const data = textEncoder.encodeInto(text, subarray);
+			const data = BufferWriter.TEXT_ENCODER.encodeInto(text, subarray);
 			const byteLength = data.written;
 
 			if (data.read < text.length) {
@@ -778,7 +789,7 @@ class BufferWriter {
 			}
 		}
 
-		return this;		
+		return this;
 	}
 
 	/**
@@ -796,7 +807,7 @@ class BufferWriter {
 	public expand(bytes: number = 1): number {
 		const buffer = this.buffer;
 
-		this.buffer = createBuffer(this.byteLength + bytes, false, 0, false);
+		this.buffer = createBuffer(this.byteLength + bytes);
 		this.view = new DataView(this.buffer.buffer, this.buffer.byteOffset, this.buffer.byteLength);
 		this.byteLength = this.buffer.byteLength;
 
@@ -910,6 +921,10 @@ class BufferWriter {
 	public advanceBytes(bytes: number = 1): number {
 		this.offset += bytes;
 
+		if (this.bitIndex === 0) {
+			this.bitOffset = this.offset;
+		}
+
 		return this.offset - bytes;
 	}
 
@@ -959,7 +974,7 @@ class BufferWriter {
 	 * const freshWriter = writer.clone(true);
 	 */
 	public clone(reset: boolean = false): BufferWriter {
-		const writer = new BufferWriter(this, this.resizable, true);
+		const writer = new BufferWriter(this, this.resizable, this.endianness, true);
 
 		if (!reset) {
 			writer.bitOffset = this.bitOffset;
@@ -982,8 +997,8 @@ class BufferWriter {
 	 */
 	public reset(offset: number = 0): this {
 		this.offset = offset;
+		this.bitOffset = offset;
 		this.bitIndex = 0;
-		this.bitOffset = 0;
 
 		return this;
 	}
@@ -1100,20 +1115,18 @@ class BufferWriter {
 	 * Gets the filled portion of the buffer as a Uint8Array.
 	 *
 	 * @returns The underlying buffer.
-	 * 
+	 *
 	 * @remarks
-	 * If the buffer is not fully filled, a warning is logged.
-	 * 
+	 * If the buffer is not filled, a warning is logged.
+	 *
 	 * @example
 	 * const data = writer.bytes;
 	 */
 	public get bytes(): Uint8Array {
 		if (this.offset < this.byteLength) {
-			console.warn(`Buffer not fully filled: ${this.offset}/${this.byteLength}`);
+			console.warn("Buffer Writer", `Buffer is not fully filled: ${this.offset}/${this.byteLength}`);
 		}
 
 		return this.buffer;
 	}
 }
-
-export { BufferWriter };

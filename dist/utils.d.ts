@@ -12,10 +12,5 @@
  * clamp(-5, 0, 10) // 0
  * clamp(15, 0, 10) // 10
  */
-export function clamp(value: number, min: number, max: number): number {
-	if (min > max) {
-		throw new RangeError("Invalid range");
-	}
-
-	return Math.min(Math.max(value, min), max);
-}
+export declare function clamp(value: number, min: number, max: number): number;
+//# sourceMappingURL=utils.d.ts.map

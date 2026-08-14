@@ -1,4 +1,4 @@
-import { endianness, createBuffer, textDecoder, type Buffers } from "./buffer.js";
+import { endianness, createBuffer, type Buffers } from "./buffer.js";
 
 import { BufferWriter } from "./writer.js";
 
@@ -24,7 +24,10 @@ import { BufferWriter } from "./writer.js";
  * const byte2 = reader.readUint8(); // 2
  * console.log(reader.offset); // 2
  */
-class BufferReader {
+export class BufferReader {
+	/** The text decoder used for reading UTF-8 encoded strings. */
+	public static readonly TEXT_DECODER = new TextDecoder();
+
 	/** The underlying Uint8Array buffer being read from. */
 	public readonly buffer: Uint8Array;
 
@@ -64,8 +67,8 @@ class BufferReader {
 	 * // Create starting at offset 10
 	 * const offsetReader = new BufferReader(buffer, false, 10);
 	 */
-	public constructor(buffer: Buffers, clone: boolean = false, offset: number = 0, littleEndian: boolean = endianness) {
-		this.buffer = createBuffer(buffer, clone, offset);
+	public constructor(buffer: Buffers, clone: boolean = false, slice?: { readonly start: number; readonly byteLength?: number }, littleEndian: boolean = endianness) {
+		this.buffer = createBuffer(buffer, clone, slice);
 
 		this.view = new DataView(this.buffer.buffer, this.buffer.byteOffset, this.buffer.byteLength);
 		this.byteLength = this.view.byteLength;
@@ -114,7 +117,7 @@ class BufferReader {
 	 * const text = BufferReader.readTextBuffer(textBuffer); // "Hello"
 	 */
 	public static readTextBuffer(buffer: ArrayBuffer): string {
-		return textDecoder.decode(buffer);
+		return BufferReader.TEXT_DECODER.decode(buffer);
 	}
 
 	/**
@@ -203,7 +206,7 @@ class BufferReader {
 
 		if (advance) {
 			this.offset = byteOffset;
-			this.bitOffset = bitOffset;
+			this.bitOffset = bitIndex === 0 ? byteOffset : bitOffset;
 			this.bitIndex = bitIndex;
 		}
 
@@ -228,15 +231,35 @@ class BufferReader {
 	 * const peek = reader.readBoolean(true, 10, false);
 	 */
 	public readBoolean(byte: boolean = false, advance?: boolean, offset: number = this.offset): boolean {
-		let result: number;
-
 		if (byte) {
-			result = this.readUint8(advance, offset);
+			return Boolean(this.readUint8(advance, offset));
 		} else {
-			result = this.readBits();
-		}
+			const bitIndex = this.bitIndex;
+			const commit = advance ?? true;
 
-		return Boolean(result);
+			let bit: number;
+
+			if (bitIndex === 0) {
+				// Start a fresh byte at the read cursor
+				const target = this.offset;
+
+				bit = this.buffer[target] & 1;
+
+				if (commit) {
+					this.bitOffset = target;
+					this.offset = target + 1;
+					this.bitIndex = 1;
+				}
+			} else {
+				bit = (this.buffer[this.bitOffset] >> bitIndex) & 1;
+
+				if (commit) {
+					this.bitIndex = (bitIndex + 1) & 7;
+				}
+			}
+
+			return Boolean(bit);
+		}
 	}
 
 	/**
@@ -476,7 +499,7 @@ class BufferReader {
 
 		do {
 			byte = this.readUint8(false, offset);
-			result |= (byte & 0x7f) << shift;
+			result += (byte & 0x7f) * 2 ** shift;
 			shift += 7;
 			offset++;
 		} while (byte & 0x80);
@@ -509,10 +532,8 @@ class BufferReader {
 	 */
 	public readInt(advance: boolean = true, offset: number = this.offset): number {
 		const zigzag = this.readUint(advance, offset);
-		
-		// Zigzag decode: (n >>> 1) ^ -(n & 1)
-		// Converts unsigned back to signed: 0→0, 1→-1, 2→1, 3→-2, 4→2, etc.
-		return (zigzag >>> 1) ^ -(zigzag & 1);
+
+		return zigzag % 2 === 0 ? zigzag / 2 : -(zigzag + 1) / 2;
 	}
 
 	/**
@@ -583,7 +604,7 @@ class BufferReader {
 	/**
 	 * Reads a UTF-8 encoded text string with size prefix.
 	 *
-	 * @param readSize - If true, reads a uint16 size prefix first.
+	 * @param readSize - If true, reads a uint16 size prefix first. Defaults to true
 	 * @param advance - Whether to advance the read position.
 	 * @param offset - The byte offset to read from.
 	 * @returns The decoded text string.
@@ -615,10 +636,10 @@ class BufferReader {
 	 */
 	public readString(bytes?: number, advance?: boolean, offset?: number): string;
 
-	public readString(a?: number | boolean, advance: boolean = true, offset: number = this.offset): string {
+	public readString(a: number | boolean = true, advance: boolean = true, offset: number = this.offset): string {
 		const buffer = this.readBuffer(a as any, false, advance, offset);
 
-		return textDecoder.decode(buffer);
+		return BufferReader.TEXT_DECODER.decode(buffer);
 	}
 
 	/**
@@ -676,6 +697,10 @@ class BufferReader {
 	public advanceBytes(bytes: number = 1): number {
 		this.offset += bytes;
 
+		if (this.bitIndex === 0) {
+			this.bitOffset = this.offset;
+		}
+
 		return this.offset - bytes;
 	}
 
@@ -725,7 +750,7 @@ class BufferReader {
 	 * const freshReader = reader.clone(true);
 	 */
 	public clone(reset: boolean = false): BufferReader {
-		const reader = new BufferReader(this.buffer, true);
+		const reader = new BufferReader(this.buffer, true, undefined, this.endianness);
 
 		if (!reset) {
 			reader.bitOffset = this.bitOffset;
@@ -748,8 +773,8 @@ class BufferReader {
 	 */
 	public reset(offset: number = 0): this {
 		this.offset = offset;
+		this.bitOffset = offset;
 		this.bitIndex = 0;
-		this.bitOffset = 0;
 
 		return this;
 	}
@@ -846,5 +871,3 @@ class BufferReader {
 		return this.byteLength - this.offset;
 	}
 }
-
-export { BufferReader };
