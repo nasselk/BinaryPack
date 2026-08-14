@@ -130,12 +130,14 @@ Read the inline JSDoc comments in `src/reader.ts` and `src/writer.ts` for more d
 Requirements: Node.js (v20+ recommended) and npm.
 
 ```pwsh
-bun install        # install dev dependencies
-bun test		   # run tests
-bun build          # compile src/ -> dist/ (JS + .d.ts + sourcemaps)
-bun run type:check # type-check without emitting
-bun run format     # biome
+bun install         # install dev dependencies
+bun test            # run tests
+bun run build       # compile src/ -> dist/ (JS + .d.ts + sourcemaps)
+bun run type:check  # type-check without emitting
+bun run biome:check # format and lint
 ```
+
+Note the `bun run` prefix on `build` — plain `bun build` invokes Bun's bundler instead of the package script.
 
 ## Releasing
 

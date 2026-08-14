@@ -31,9 +31,9 @@
 		"node": ">=20"
 	},
 	"scripts": {
-		"build": "tsc --project tsconfig.json",
+		"build": "tsc",
 		"test": "bun test",
-		"types:check": "tsc --project tsconfig.json --noEmit",
+		"types:check": "tsc --noEmit",
 		"biome:check": "biome check --write"
 	},
 	"devDependencies": {
