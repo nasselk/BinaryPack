@@ -161,17 +161,6 @@ export class BufferReader {
 			bitIndex = 0;
 		}
 
-		if (bitIndex === 0 && bitOffset === this.offset) {
-			switch (bits) {
-				case 8:
-					return signed ? this.readInt8(advance, bitOffset) : this.readUint8(advance, bitOffset);
-				case 16:
-					return signed ? this.readInt16(advance, bitOffset) : this.readUint16(advance, bitOffset);
-				case 32:
-					return signed ? this.readInt32(advance, bitOffset) : this.readUint32(advance, bitOffset);
-			}
-		}
-
 		while (bitsRead < bits) {
 			if (bitIndex === 0) {
 				bitOffset = byteOffset;
