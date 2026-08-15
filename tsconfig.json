@@ -23,5 +23,5 @@
 		"lib": ["ESNext", "DOM"],
 		"types": ["node", "bun"]
 	},
-	"include": ["src/**/*.ts", "test/**/*.ts"],
+	"include": ["src/**/*.ts"],
 }
