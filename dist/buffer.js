@@ -12,9 +12,6 @@ export function createBuffer(allocation = 0, clone = false, slice, clearMemory =
         }
         return new Uint8Array(allocation);
     }
-    if (Array.isArray(allocation)) {
-        return new Uint8Array(allocation); // Already a copy
-    }
     // Unwrap our own wrappers so the slice applies to them too
     const source = allocation instanceof BufferReader || allocation instanceof BufferWriter ? allocation.buffer : allocation;
     const offset = slice?.start ?? 0;
@@ -29,6 +26,9 @@ export function createBuffer(allocation = 0, clone = false, slice, clearMemory =
             throw new RangeError(`Slice [ ${offset}, ${offset + length} ) is out of range for ${source.byteLength} bytes`);
         }
         output = new Uint8Array(source.buffer, source.byteOffset + offset, length);
+    }
+    else if (Array.isArray(allocation)) {
+        return new Uint8Array(allocation); // Already a copy
     }
     else {
         throw new TypeError("Invalid buffer type");

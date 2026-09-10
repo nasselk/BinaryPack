@@ -266,6 +266,7 @@ export class BufferWriter {
             if (bitIndex === 0) {
                 // Start a fresh byte at the write cursor (writeBits overwrites rather than ORs here)
                 const target = this.offset;
+                this.ensureCapacity(1);
                 this.buffer[target] = value;
                 if (commit) {
                     this.bitOffset = target;
