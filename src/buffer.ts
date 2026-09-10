@@ -1,9 +1,10 @@
+import type { ArrayBufferView } from "bun";
 import { BufferReader } from "./reader.js";
 
 import { BufferWriter } from "./writer.js";
 
 export type Buffers = ArrayBufferLike | ArrayBufferView | BufferWriter | BufferReader;
-export type BufferView = Uint8Array | Int8Array | Uint8ClampedArray | Int16Array | Uint16Array | Float16Array | Int32Array | Uint32Array | Float32Array | Float64Array;
+export type BufferView = ArrayBufferView;
 
 const enum Endianness {
 	BIG,
@@ -25,9 +26,6 @@ export function createBuffer(allocation: number | Buffers | ArrayLike<number> = 
 		return new Uint8Array(allocation);
 	}
 
-	if (Array.isArray(allocation)) {
-		return new Uint8Array(allocation); // Already a copy
-	}
 
 	// Unwrap our own wrappers so the slice applies to them too
 	const source = allocation instanceof BufferReader || allocation instanceof BufferWriter ? allocation.buffer : allocation;
@@ -46,6 +44,8 @@ export function createBuffer(allocation: number | Buffers | ArrayLike<number> = 
 		}
 
 		output = new Uint8Array(source.buffer, source.byteOffset + offset, length);
+	} else if (Array.isArray(allocation)) {
+		return new Uint8Array(allocation); // Already a copy
 	} else {
 		throw new TypeError("Invalid buffer type");
 	}
