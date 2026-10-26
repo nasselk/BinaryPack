@@ -31,15 +31,16 @@
 		"node": ">=20"
 	},
 	"scripts": {
-		"build": "tsc",
+		"build": "rm -rf dist && tsc",
 		"test": "bun test",
-		"types:check": "tsc --noEmit",
+		"format": "biome format --write",
+		"lint": "biome lint --write",
 		"biome:check": "biome check --write"
 	},
 	"devDependencies": {
-		"@types/node": "^26.2.0",
-		"@types/bun": "^1.3.14",
-		"@biomejs/biome": "^2.5.8",
+		"@types/node": "^26.5.1",
+		"@types/bun": "^1.4.2",
+		"@biomejs/biome": "^2.5.13",
 		"typescript": "^7.0.2"
 	}
 }

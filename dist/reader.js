@@ -1,4 +1,5 @@
 import { endianness, createBuffer } from "./buffer.js";
+import { getFloat16, getFloat32, getFloat64 } from "./bytes.js";
 import { BufferWriter } from "./writer.js";
 /**
  * A binary buffer reader for efficient sequential reading of various data types.
@@ -31,8 +32,8 @@ export class BufferReader {
     endianness;
     /** The total length of the buffer in bytes. */
     byteLength;
-    /** DataView for efficient typed array access. */
-    view;
+    /** DataView used only for 64-bit integers, created on first use. */
+    lazyView;
     /** The byte offset where bit operations are currently positioned. */
     bitOffset;
     /** The bit index within the current byte (0-7). */
@@ -59,8 +60,7 @@ export class BufferReader {
      */
     constructor(buffer, clone = false, slice, littleEndian = endianness) {
         this.buffer = createBuffer(buffer, clone, slice);
-        this.view = new DataView(this.buffer.buffer, this.buffer.byteOffset, this.buffer.byteLength);
-        this.byteLength = this.view.byteLength;
+        this.byteLength = this.buffer.byteLength;
         this.endianness = littleEndian;
         this.bitOffset = 0;
         this.bitIndex = 0;
@@ -115,6 +115,7 @@ export class BufferReader {
      * @param bitOffset - The byte offset to read from.
      * @returns The integer value read from the buffer.
      *
+     * @throws {RangeError} If bits is not in the range [1, 32].
      * @throws {RangeError} If attempting to read beyond the buffer bounds.
      *
      * @remarks
@@ -132,6 +133,9 @@ export class BufferReader {
      * const peek = reader.readBits(5, false, false);
      */
     readBits(bits = 1, signed = false, advance = true, offset = this.bitOffset) {
+        if (bits < 1 || bits > 32) {
+            throw new RangeError("Bits must be in the range [1, 32]");
+        }
         let value = 0;
         let bitsRead = 0;
         let byteOffset = this.offset;
@@ -162,12 +166,9 @@ export class BufferReader {
             bitsRead += bitsToRead;
             bitIndex = (bitIndex + bitsToRead) % 8;
         }
+        value >>>= 0;
         if (signed) {
-            const min = BufferWriter.rangeMin(bits, signed);
-            value += min;
-        }
-        else {
-            value = value >>> 0;
+            value += BufferWriter.rangeMin(bits, signed);
         }
         if (advance) {
             this.offset = byteOffset;
@@ -235,7 +236,8 @@ export class BufferReader {
      * const specific = reader.readUint8(true, 10); // Read from offset 10
      */
     readUint8(advance = true, offset = this.offset) {
-        const value = this.view.getUint8(offset);
+        this.checkBounds(offset, 1);
+        const value = this.buffer[offset];
         this.advance(1, offset, advance);
         return value;
     }
@@ -251,7 +253,8 @@ export class BufferReader {
      * const byte = reader.readInt8(); // -128 to 127
      */
     readInt8(advance = true, offset = this.offset) {
-        const value = this.view.getInt8(offset);
+        this.checkBounds(offset, 1);
+        const value = (this.buffer[offset] << 24) >> 24;
         this.advance(1, offset, advance);
         return value;
     }
@@ -267,7 +270,8 @@ export class BufferReader {
      * const short = reader.readUint16(); // 0-65535
      */
     readUint16(advance = true, offset = this.offset) {
-        const value = this.view.getUint16(offset, this.endianness);
+        this.checkBounds(offset, 2);
+        const value = this.uint16(offset);
         this.advance(2, offset, advance);
         return value;
     }
@@ -283,7 +287,8 @@ export class BufferReader {
      * const value = reader.readInt16(); // -32768 to 32767
      */
     readInt16(advance = true, offset = this.offset) {
-        const value = this.view.getInt16(offset, this.endianness);
+        this.checkBounds(offset, 2);
+        const value = (this.uint16(offset) << 16) >> 16;
         this.advance(2, offset, advance);
         return value;
     }
@@ -299,7 +304,8 @@ export class BufferReader {
      * const half = reader.readFloat16(); // 16-bit float
      */
     readFloat16(advance = true, offset = this.offset) {
-        const value = this.view.getFloat16(offset, this.endianness);
+        this.checkBounds(offset, 2);
+        const value = getFloat16(this.buffer, offset, this.endianness);
         this.advance(2, offset, advance);
         return value;
     }
@@ -315,7 +321,8 @@ export class BufferReader {
      * const integer = reader.readUint32(); // 0-4294967295
      */
     readUint32(advance = true, offset = this.offset) {
-        const value = this.view.getUint32(offset, this.endianness);
+        this.checkBounds(offset, 4);
+        const value = this.int32(offset) >>> 0;
         this.advance(4, offset, advance);
         return value;
     }
@@ -331,7 +338,8 @@ export class BufferReader {
      * const int = reader.readInt32(); // ±2.1 billion
      */
     readInt32(advance = true, offset = this.offset) {
-        const value = this.view.getInt32(offset, this.endianness);
+        this.checkBounds(offset, 4);
+        const value = this.int32(offset);
         this.advance(4, offset, advance);
         return value;
     }
@@ -347,7 +355,8 @@ export class BufferReader {
      * const float = reader.readFloat32(); // IEEE 754 single precision
      */
     readFloat32(advance = true, offset = this.offset) {
-        const value = this.view.getFloat32(offset, this.endianness);
+        this.checkBounds(offset, 4);
+        const value = getFloat32(this.buffer, offset, this.endianness);
         this.advance(4, offset, advance);
         return value;
     }
@@ -395,7 +404,8 @@ export class BufferReader {
      * const double = reader.readFloat64(); // IEEE 754 double precision
      */
     readFloat64(advance = true, offset = this.offset) {
-        const value = this.view.getFloat64(offset, this.endianness);
+        this.checkBounds(offset, 8);
+        const value = getFloat64(this.buffer, offset, this.endianness);
         this.advance(8, offset, advance);
         return value;
     }
@@ -490,6 +500,30 @@ export class BufferReader {
      * @param advance - Whether to actually advance.
      * @returns This reader for method chaining.
      */
+    /** The DataView over the buffer, created the first time a 64-bit integer is read. */
+    get view() {
+        this.lazyView ??= new DataView(this.buffer.buffer, this.buffer.byteOffset, this.buffer.byteLength);
+        return this.lazyView;
+    }
+    /**
+     * Throws if reading the given number of bytes at the offset would go past the buffer.
+     * A Uint8Array returns undefined out of range instead of throwing, so this keeps truncated data from decoding silently.
+     */
+    checkBounds(offset, bytes) {
+        if (offset < 0 || offset + bytes > this.byteLength) {
+            throw new RangeError(`Read of ${bytes} bytes at offset ${offset} is out of bounds for ${this.byteLength} bytes`);
+        }
+    }
+    /** Reads 2 bytes as an unsigned 16-bit integer in this reader's byte order. */
+    uint16(offset) {
+        const b = this.buffer;
+        return this.endianness ? b[offset] | (b[offset + 1] << 8) : (b[offset] << 8) | b[offset + 1];
+    }
+    /** Reads 4 bytes as a signed 32-bit integer in this reader's byte order. */
+    int32(offset) {
+        const b = this.buffer;
+        return this.endianness ? b[offset] | (b[offset + 1] << 8) | (b[offset + 2] << 16) | (b[offset + 3] << 24) : (b[offset] << 24) | (b[offset + 1] << 16) | (b[offset + 2] << 8) | b[offset + 3];
+    }
     advance(bytes = 1, offset = this.offset, advance = offset === this.offset) {
         if (advance) {
             this.advanceBytes(offset + bytes - this.offset);
@@ -545,7 +579,7 @@ export class BufferReader {
      *
      * @throws {RangeError} If bitIndex is not in range [0, 7].
      * @throws {RangeError} If byteOffset is negative.
-     * @throws {RangeError} If buffer overflow occurs and buffer is not resizable.
+     * @throws {RangeError} If buffer overflow occurs.
      *
      * @example
      * reader.move(10); // Move to byte offset 10

@@ -38,10 +38,12 @@ export declare class BufferWriter {
     private bitOffset;
     /** The bit index within the current byte (0-7). */
     private bitIndex;
-    /** DataView for efficient typed array access. */
-    private view;
+    /** DataView used only for 64-bit integers, created on first use. */
+    private lazyView?;
     /** The current write position in bytes. */
     offset: number;
+    /** The furthest byte written so far. Data ends here; the buffer may be larger. */
+    length: number;
     /**
      * Creates a new BufferWriter instance with specified byte length.
      *
@@ -178,12 +180,12 @@ export declare class BufferWriter {
      * Supports non-byte-aligned writes for space-efficient data encoding.
      *
      * @param value - The integer value to write.
-     * @param bits - Number of bits to write (1-53).
+     * @param bits - Number of bits to write (1-32).
      * @param signed - Whether to interpret the value as signed.
      * @param advance - Whether to advance the write position.
      * @returns This writer for method chaining.
      *
-     * @throws {RangeError} If bits is not in the range [1, 53].
+     * @throws {RangeError} If bits is not in the range [1, 32].
      * @throws {RangeError} If value is outside the valid range for the specified number of bits.
      * @throws {RangeError} If buffer overflow occurs and buffer is not resizable.
      *
@@ -516,6 +518,15 @@ export declare class BufferWriter {
      * @param advance - Whether to actually advance.
      * @returns This writer for method chaining.
      */
+    /** The DataView over the buffer, created the first time a 64-bit integer is written. */
+    private get view();
+    /**
+     * Writes the low 16 bits of a number as 2 bytes in this writer's byte order.
+     * A Uint8Array keeps only the low 8 bits of each assigned value, which matches how DataView wraps.
+     */
+    private uint16;
+    /** Writes the low 32 bits of a number as 4 bytes in this writer's byte order. */
+    private uint32;
     private advance;
     /**
      * Advances the write position by the specified number of bits without writing data.

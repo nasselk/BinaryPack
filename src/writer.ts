@@ -1,4 +1,5 @@
 import { endianness, createBuffer, type Buffers, type BufferSlice } from "./buffer.js";
+import { setFloat16, setFloat32, setFloat64 } from "./bytes.js";
 
 import { clamp } from "./utils.js";
 
@@ -48,11 +49,14 @@ export class BufferWriter {
 	/** The bit index within the current byte (0-7). */
 	private bitIndex: number;
 
-	/** DataView for efficient typed array access. */
-	private view: DataView;
+	/** DataView used only for 64-bit integers, created on first use. */
+	private lazyView?: DataView;
 
 	/** The current write position in bytes. */
 	public offset: number;
+
+	/** The furthest byte written so far. Data ends here; the buffer may be larger. */
+	public length: number;
 
 	/**
 	 * Creates a new BufferWriter instance with specified byte length.
@@ -98,13 +102,13 @@ export class BufferWriter {
 	public constructor(allocation: number | Buffers = 0, resizable: boolean = allocation === 0, littleEndian: boolean = endianness, clone: boolean = false, slice?: { readonly start: number; readonly byteLength?: number }) {
 		this.buffer = createBuffer(allocation, clone, slice);
 
-		this.view = new DataView(this.buffer.buffer, this.buffer.byteOffset, this.buffer.byteLength);
-		this.byteLength = this.view.byteLength;
+		this.byteLength = this.buffer.byteLength;
 		this.endianness = littleEndian;
 		this.resizable = resizable;
 		this.bitOffset = 0;
 		this.bitIndex = 0;
 		this.offset = 0;
+		this.length = 0;
 	}
 
 	/**
@@ -247,12 +251,12 @@ export class BufferWriter {
 	 * Supports non-byte-aligned writes for space-efficient data encoding.
 	 *
 	 * @param value - The integer value to write.
-	 * @param bits - Number of bits to write (1-53).
+	 * @param bits - Number of bits to write (1-32).
 	 * @param signed - Whether to interpret the value as signed.
 	 * @param advance - Whether to advance the write position.
 	 * @returns This writer for method chaining.
 	 *
-	 * @throws {RangeError} If bits is not in the range [1, 53].
+	 * @throws {RangeError} If bits is not in the range [1, 32].
 	 * @throws {RangeError} If value is outside the valid range for the specified number of bits.
 	 * @throws {RangeError} If buffer overflow occurs and buffer is not resizable.
 	 *
@@ -267,16 +271,8 @@ export class BufferWriter {
 	 * writer.writeBits(7, 5, false, false);
 	 */
 	public writeBits(value: number = 0, bits: number = 1, signed: boolean = false, offset: number = this.bitOffset, advance: boolean = true): this {
-		let byteOffset = this.offset;
-		let bitOffset = offset;
-		let bitIndex = this.bitIndex;
-
-		if (offset !== this.bitOffset) {
-			if (advance) {
-				this.bitIndex = 0;
-			}
-
-			bitIndex = 0;
+		if (bits < 1 || bits > 32) {
+			throw new RangeError("Bits must be in the range [1, 32]");
 		}
 
 		const min = BufferWriter.rangeMin(bits, signed);
@@ -288,6 +284,18 @@ export class BufferWriter {
 
 		if (signed) {
 			value -= min;
+		}
+
+		let byteOffset = this.offset;
+		let bitOffset = offset;
+		let bitIndex = this.bitIndex;
+
+		if (offset !== this.bitOffset) {
+			if (advance) {
+				this.bitIndex = 0;
+			}
+
+			bitIndex = 0;
 		}
 
 		// The loop indexes the buffer directly, and out-of-range writes on a Uint8Array are dropped silently rather than throwing,
@@ -415,7 +423,7 @@ export class BufferWriter {
 	public writeUint8(value: number = 0, offset: number = this.offset, advance?: boolean): this {
 		this.advance(1, offset, advance);
 
-		this.view.setUint8(offset, value);
+		this.buffer[offset] = value;
 
 		return this;
 	}
@@ -437,7 +445,7 @@ export class BufferWriter {
 	public writeInt8(value: number = 0, offset: number = this.offset, advance?: boolean): this {
 		this.advance(1, offset, advance);
 
-		this.view.setInt8(offset, value);
+		this.buffer[offset] = value;
 
 		return this;
 	}
@@ -458,7 +466,7 @@ export class BufferWriter {
 	public writeUint16(value: number = 0, offset: number = this.offset, advance?: boolean): this {
 		this.advance(2, offset, advance);
 
-		this.view.setUint16(offset, value, this.endianness);
+		this.uint16(offset, value);
 
 		return this;
 	}
@@ -480,7 +488,7 @@ export class BufferWriter {
 	public writeInt16(value: number = 0, offset: number = this.offset, advance?: boolean): this {
 		this.advance(2, offset, advance);
 
-		this.view.setInt16(offset, value, this.endianness);
+		this.uint16(offset, value);
 
 		return this;
 	}
@@ -501,7 +509,7 @@ export class BufferWriter {
 	public writeFloat16(value: number = 0, offset: number = this.offset, advance?: boolean): this {
 		this.advance(2, offset, advance);
 
-		this.view.setFloat16(offset, value, this.endianness);
+		setFloat16(this.buffer, offset, value, this.endianness);
 
 		return this;
 	}
@@ -522,7 +530,7 @@ export class BufferWriter {
 	public writeUint32(value: number = 0, offset: number = this.offset, advance?: boolean): this {
 		this.advance(4, offset, advance);
 
-		this.view.setUint32(offset, value, this.endianness);
+		this.uint32(offset, value);
 
 		return this;
 	}
@@ -543,7 +551,7 @@ export class BufferWriter {
 	public writeInt32(value: number = 0, offset: number = this.offset, advance?: boolean): this {
 		this.advance(4, offset, advance);
 
-		this.view.setInt32(offset, value, this.endianness);
+		this.uint32(offset, value);
 
 		return this;
 	}
@@ -564,7 +572,7 @@ export class BufferWriter {
 	public writeFloat32(value: number = 0, offset: number = this.offset, advance?: boolean): this {
 		this.advance(4, offset, advance);
 
-		this.view.setFloat32(offset, value, this.endianness);
+		setFloat32(this.buffer, offset, value, this.endianness);
 
 		return this;
 	}
@@ -627,7 +635,7 @@ export class BufferWriter {
 	public writeFloat64(value: number = 0, offset: number = this.offset, advance?: boolean): this {
 		this.advance(8, offset, advance);
 
-		this.view.setFloat64(offset, value, this.endianness);
+		setFloat64(this.buffer, offset, value, this.endianness);
 
 		return this;
 	}
@@ -777,6 +785,7 @@ export class BufferWriter {
 			const subarray = this.buffer.subarray(offset);
 			const data = BufferWriter.TEXT_ENCODER.encodeInto(text, subarray);
 			const byteLength = data.written;
+			this.length = Math.max(this.length, offset + byteLength);
 
 			if (data.read < text.length) {
 				throw new RangeError(`Buffer overflow ${data.read}/${text.length} chars encoded)`);
@@ -810,7 +819,7 @@ export class BufferWriter {
 		const buffer = this.buffer;
 
 		this.buffer = createBuffer(this.byteLength + bytes);
-		this.view = new DataView(this.buffer.buffer, this.buffer.byteOffset, this.buffer.byteLength);
+		this.lazyView = undefined;
 		this.byteLength = this.buffer.byteLength;
 
 		this.buffer.set(buffer);
@@ -831,10 +840,11 @@ export class BufferWriter {
 	 */
 	public shrink(bytes: number = this.byteLength - this.offset): number {
 		this.buffer = new Uint8Array(this.buffer.buffer, this.buffer.byteOffset, this.byteLength - bytes);
-		this.view = new DataView(this.buffer.buffer, this.buffer.byteOffset, this.buffer.byteLength);
+		this.lazyView = undefined;
 		this.byteLength = this.buffer.byteLength;
 
 		this.offset = Math.min(this.offset, this.byteLength);
+		this.length = Math.min(this.length, this.byteLength);
 
 		return this.byteLength;
 	}
@@ -853,13 +863,18 @@ export class BufferWriter {
 	private ensureCapacity(bytes: number, offset: number = this.offset): this {
 		if (offset + bytes > this.byteLength) {
 			if (this.resizable) {
-				this.expand(offset + bytes - this.byteLength);
+				const required = offset + bytes;
+				const target = Math.max(required, this.byteLength * 2, 32);
+
+				this.expand(target - this.byteLength);
 			} else {
 				throw new RangeError(`Buffer overflow ${offset + bytes} ${this.byteLength}`);
 			}
 		} else if (offset < 0) {
 			throw new RangeError(`Cannot write at offset ${offset}, offset must be positive`);
 		}
+
+		this.length = Math.max(this.length, offset + bytes);
 
 		return this;
 	}
@@ -872,6 +887,46 @@ export class BufferWriter {
 	 * @param advance - Whether to actually advance.
 	 * @returns This writer for method chaining.
 	 */
+	/** The DataView over the buffer, created the first time a 64-bit integer is written. */
+	private get view(): DataView {
+		this.lazyView ??= new DataView(this.buffer.buffer, this.buffer.byteOffset, this.buffer.byteLength);
+
+		return this.lazyView;
+	}
+
+	/**
+	 * Writes the low 16 bits of a number as 2 bytes in this writer's byte order.
+	 * A Uint8Array keeps only the low 8 bits of each assigned value, which matches how DataView wraps.
+	 */
+	private uint16(offset: number, value: number): void {
+		const b = this.buffer;
+
+		if (this.endianness) {
+			b[offset] = value;
+			b[offset + 1] = value >>> 8;
+		} else {
+			b[offset] = value >>> 8;
+			b[offset + 1] = value;
+		}
+	}
+
+	/** Writes the low 32 bits of a number as 4 bytes in this writer's byte order. */
+	private uint32(offset: number, value: number): void {
+		const b = this.buffer;
+
+		if (this.endianness) {
+			b[offset] = value;
+			b[offset + 1] = value >>> 8;
+			b[offset + 2] = value >>> 16;
+			b[offset + 3] = value >>> 24;
+		} else {
+			b[offset] = value >>> 24;
+			b[offset + 1] = value >>> 16;
+			b[offset + 2] = value >>> 8;
+			b[offset + 3] = value;
+		}
+	}
+
 	private advance(bytes: number = 1, offset: number = this.offset, advance: boolean = offset === this.offset): this {
 		this.ensureCapacity(bytes, offset);
 
@@ -982,6 +1037,7 @@ export class BufferWriter {
 			writer.bitOffset = this.bitOffset;
 			writer.bitIndex = this.bitIndex;
 			writer.offset = this.offset;
+			writer.length = this.length;
 		}
 
 		return writer;
@@ -1049,7 +1105,7 @@ export class BufferWriter {
 	 * writer.writeUint8(255); // Append at the end
 	 */
 	public fillOffset(): this {
-		this.offset = this.byteLength;
+		this.offset = this.length;
 
 		return this;
 	}
@@ -1125,8 +1181,12 @@ export class BufferWriter {
 	 * const data = writer.bytes;
 	 */
 	public get bytes(): Uint8Array {
-		if (this.offset < this.byteLength) {
-			console.warn("Buffer Writer", `Buffer is not fully filled: ${this.offset}/${this.byteLength}`);
+		if (this.length < this.byteLength) {
+			if (this.resizable) {
+				return this.buffer.subarray(0, this.length);
+			} else {
+				console.warn("Buffer Writer", `Buffer is not filled: ${this.length}/${this.byteLength}`);
+			}
 		}
 
 		return this.buffer;

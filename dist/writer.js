@@ -1,4 +1,5 @@
 import { endianness, createBuffer } from "./buffer.js";
+import { setFloat16, setFloat32, setFloat64 } from "./bytes.js";
 import { clamp } from "./utils.js";
 /**
  * A binary buffer writer for efficient sequential writing of various data types.
@@ -39,19 +40,21 @@ export class BufferWriter {
     bitOffset;
     /** The bit index within the current byte (0-7). */
     bitIndex;
-    /** DataView for efficient typed array access. */
-    view;
+    /** DataView used only for 64-bit integers, created on first use. */
+    lazyView;
     /** The current write position in bytes. */
     offset;
+    /** The furthest byte written so far. Data ends here; the buffer may be larger. */
+    length;
     constructor(allocation = 0, resizable = allocation === 0, littleEndian = endianness, clone = false, slice) {
         this.buffer = createBuffer(allocation, clone, slice);
-        this.view = new DataView(this.buffer.buffer, this.buffer.byteOffset, this.buffer.byteLength);
-        this.byteLength = this.view.byteLength;
+        this.byteLength = this.buffer.byteLength;
         this.endianness = littleEndian;
         this.resizable = resizable;
         this.bitOffset = 0;
         this.bitIndex = 0;
         this.offset = 0;
+        this.length = 0;
     }
     /**
      * Calculates the maximum value that can be represented with the given number of bits.
@@ -185,12 +188,12 @@ export class BufferWriter {
      * Supports non-byte-aligned writes for space-efficient data encoding.
      *
      * @param value - The integer value to write.
-     * @param bits - Number of bits to write (1-53).
+     * @param bits - Number of bits to write (1-32).
      * @param signed - Whether to interpret the value as signed.
      * @param advance - Whether to advance the write position.
      * @returns This writer for method chaining.
      *
-     * @throws {RangeError} If bits is not in the range [1, 53].
+     * @throws {RangeError} If bits is not in the range [1, 32].
      * @throws {RangeError} If value is outside the valid range for the specified number of bits.
      * @throws {RangeError} If buffer overflow occurs and buffer is not resizable.
      *
@@ -205,14 +208,8 @@ export class BufferWriter {
      * writer.writeBits(7, 5, false, false);
      */
     writeBits(value = 0, bits = 1, signed = false, offset = this.bitOffset, advance = true) {
-        let byteOffset = this.offset;
-        let bitOffset = offset;
-        let bitIndex = this.bitIndex;
-        if (offset !== this.bitOffset) {
-            if (advance) {
-                this.bitIndex = 0;
-            }
-            bitIndex = 0;
+        if (bits < 1 || bits > 32) {
+            throw new RangeError("Bits must be in the range [1, 32]");
         }
         const min = BufferWriter.rangeMin(bits, signed);
         const max = BufferWriter.rangeMax(bits, signed);
@@ -221,6 +218,15 @@ export class BufferWriter {
         }
         if (signed) {
             value -= min;
+        }
+        let byteOffset = this.offset;
+        let bitOffset = offset;
+        let bitIndex = this.bitIndex;
+        if (offset !== this.bitOffset) {
+            if (advance) {
+                this.bitIndex = 0;
+            }
+            bitIndex = 0;
         }
         // The loop indexes the buffer directly, and out-of-range writes on a Uint8Array are dropped silently rather than throwing,
         // so every byte about to be touched has to exist first. Any bits left in the current byte are already allocated.
@@ -299,7 +305,7 @@ export class BufferWriter {
      */
     writeUint8(value = 0, offset = this.offset, advance) {
         this.advance(1, offset, advance);
-        this.view.setUint8(offset, value);
+        this.buffer[offset] = value;
         return this;
     }
     /**
@@ -318,7 +324,7 @@ export class BufferWriter {
      */
     writeInt8(value = 0, offset = this.offset, advance) {
         this.advance(1, offset, advance);
-        this.view.setInt8(offset, value);
+        this.buffer[offset] = value;
         return this;
     }
     /**
@@ -336,7 +342,7 @@ export class BufferWriter {
      */
     writeUint16(value = 0, offset = this.offset, advance) {
         this.advance(2, offset, advance);
-        this.view.setUint16(offset, value, this.endianness);
+        this.uint16(offset, value);
         return this;
     }
     /**
@@ -355,7 +361,7 @@ export class BufferWriter {
      */
     writeInt16(value = 0, offset = this.offset, advance) {
         this.advance(2, offset, advance);
-        this.view.setInt16(offset, value, this.endianness);
+        this.uint16(offset, value);
         return this;
     }
     /**
@@ -373,7 +379,7 @@ export class BufferWriter {
      */
     writeFloat16(value = 0, offset = this.offset, advance) {
         this.advance(2, offset, advance);
-        this.view.setFloat16(offset, value, this.endianness);
+        setFloat16(this.buffer, offset, value, this.endianness);
         return this;
     }
     /**
@@ -391,7 +397,7 @@ export class BufferWriter {
      */
     writeUint32(value = 0, offset = this.offset, advance) {
         this.advance(4, offset, advance);
-        this.view.setUint32(offset, value, this.endianness);
+        this.uint32(offset, value);
         return this;
     }
     /**
@@ -409,7 +415,7 @@ export class BufferWriter {
      */
     writeInt32(value = 0, offset = this.offset, advance) {
         this.advance(4, offset, advance);
-        this.view.setInt32(offset, value, this.endianness);
+        this.uint32(offset, value);
         return this;
     }
     /**
@@ -427,7 +433,7 @@ export class BufferWriter {
      */
     writeFloat32(value = 0, offset = this.offset, advance) {
         this.advance(4, offset, advance);
-        this.view.setFloat32(offset, value, this.endianness);
+        setFloat32(this.buffer, offset, value, this.endianness);
         return this;
     }
     /**
@@ -481,7 +487,7 @@ export class BufferWriter {
      */
     writeFloat64(value = 0, offset = this.offset, advance) {
         this.advance(8, offset, advance);
-        this.view.setFloat64(offset, value, this.endianness);
+        setFloat64(this.buffer, offset, value, this.endianness);
         return this;
     }
     /**
@@ -614,6 +620,7 @@ export class BufferWriter {
             const subarray = this.buffer.subarray(offset);
             const data = BufferWriter.TEXT_ENCODER.encodeInto(text, subarray);
             const byteLength = data.written;
+            this.length = Math.max(this.length, offset + byteLength);
             if (data.read < text.length) {
                 throw new RangeError(`Buffer overflow ${data.read}/${text.length} chars encoded)`);
             }
@@ -641,7 +648,7 @@ export class BufferWriter {
     expand(bytes = 1) {
         const buffer = this.buffer;
         this.buffer = createBuffer(this.byteLength + bytes);
-        this.view = new DataView(this.buffer.buffer, this.buffer.byteOffset, this.buffer.byteLength);
+        this.lazyView = undefined;
         this.byteLength = this.buffer.byteLength;
         this.buffer.set(buffer);
         return this.byteLength;
@@ -659,9 +666,10 @@ export class BufferWriter {
      */
     shrink(bytes = this.byteLength - this.offset) {
         this.buffer = new Uint8Array(this.buffer.buffer, this.buffer.byteOffset, this.byteLength - bytes);
-        this.view = new DataView(this.buffer.buffer, this.buffer.byteOffset, this.buffer.byteLength);
+        this.lazyView = undefined;
         this.byteLength = this.buffer.byteLength;
         this.offset = Math.min(this.offset, this.byteLength);
+        this.length = Math.min(this.length, this.byteLength);
         return this.byteLength;
     }
     /**
@@ -678,7 +686,9 @@ export class BufferWriter {
     ensureCapacity(bytes, offset = this.offset) {
         if (offset + bytes > this.byteLength) {
             if (this.resizable) {
-                this.expand(offset + bytes - this.byteLength);
+                const required = offset + bytes;
+                const target = Math.max(required, this.byteLength * 2, 32);
+                this.expand(target - this.byteLength);
             }
             else {
                 throw new RangeError(`Buffer overflow ${offset + bytes} ${this.byteLength}`);
@@ -687,6 +697,7 @@ export class BufferWriter {
         else if (offset < 0) {
             throw new RangeError(`Cannot write at offset ${offset}, offset must be positive`);
         }
+        this.length = Math.max(this.length, offset + bytes);
         return this;
     }
     /**
@@ -697,6 +708,42 @@ export class BufferWriter {
      * @param advance - Whether to actually advance.
      * @returns This writer for method chaining.
      */
+    /** The DataView over the buffer, created the first time a 64-bit integer is written. */
+    get view() {
+        this.lazyView ??= new DataView(this.buffer.buffer, this.buffer.byteOffset, this.buffer.byteLength);
+        return this.lazyView;
+    }
+    /**
+     * Writes the low 16 bits of a number as 2 bytes in this writer's byte order.
+     * A Uint8Array keeps only the low 8 bits of each assigned value, which matches how DataView wraps.
+     */
+    uint16(offset, value) {
+        const b = this.buffer;
+        if (this.endianness) {
+            b[offset] = value;
+            b[offset + 1] = value >>> 8;
+        }
+        else {
+            b[offset] = value >>> 8;
+            b[offset + 1] = value;
+        }
+    }
+    /** Writes the low 32 bits of a number as 4 bytes in this writer's byte order. */
+    uint32(offset, value) {
+        const b = this.buffer;
+        if (this.endianness) {
+            b[offset] = value;
+            b[offset + 1] = value >>> 8;
+            b[offset + 2] = value >>> 16;
+            b[offset + 3] = value >>> 24;
+        }
+        else {
+            b[offset] = value >>> 24;
+            b[offset + 1] = value >>> 16;
+            b[offset + 2] = value >>> 8;
+            b[offset + 3] = value;
+        }
+    }
     advance(bytes = 1, offset = this.offset, advance = offset === this.offset) {
         this.ensureCapacity(bytes, offset);
         if (advance) {
@@ -793,6 +840,7 @@ export class BufferWriter {
             writer.bitOffset = this.bitOffset;
             writer.bitIndex = this.bitIndex;
             writer.offset = this.offset;
+            writer.length = this.length;
         }
         return writer;
     }
@@ -853,7 +901,7 @@ export class BufferWriter {
      * writer.writeUint8(255); // Append at the end
      */
     fillOffset() {
-        this.offset = this.byteLength;
+        this.offset = this.length;
         return this;
     }
     /**
@@ -921,8 +969,13 @@ export class BufferWriter {
      * const data = writer.bytes;
      */
     get bytes() {
-        if (this.offset < this.byteLength) {
-            console.warn("Buffer Writer", `Buffer is not fully filled: ${this.offset}/${this.byteLength}`);
+        if (this.length < this.byteLength) {
+            if (this.resizable) {
+                return this.buffer.subarray(0, this.length);
+            }
+            else {
+                console.warn("Buffer Writer", `Buffer is not filled: ${this.length}/${this.byteLength}`);
+            }
         }
         return this.buffer;
     }

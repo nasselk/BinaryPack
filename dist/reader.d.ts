@@ -30,8 +30,8 @@ export declare class BufferReader {
     private readonly endianness;
     /** The total length of the buffer in bytes. */
     readonly byteLength: number;
-    /** DataView for efficient typed array access. */
-    private readonly view;
+    /** DataView used only for 64-bit integers, created on first use. */
+    private lazyView?;
     /** The byte offset where bit operations are currently positioned. */
     private bitOffset;
     /** The bit index within the current byte (0-7). */
@@ -102,6 +102,7 @@ export declare class BufferReader {
      * @param bitOffset - The byte offset to read from.
      * @returns The integer value read from the buffer.
      *
+     * @throws {RangeError} If bits is not in the range [1, 32].
      * @throws {RangeError} If attempting to read beyond the buffer bounds.
      *
      * @remarks
@@ -390,6 +391,17 @@ export declare class BufferReader {
      * @param advance - Whether to actually advance.
      * @returns This reader for method chaining.
      */
+    /** The DataView over the buffer, created the first time a 64-bit integer is read. */
+    private get view();
+    /**
+     * Throws if reading the given number of bytes at the offset would go past the buffer.
+     * A Uint8Array returns undefined out of range instead of throwing, so this keeps truncated data from decoding silently.
+     */
+    private checkBounds;
+    /** Reads 2 bytes as an unsigned 16-bit integer in this reader's byte order. */
+    private uint16;
+    /** Reads 4 bytes as a signed 32-bit integer in this reader's byte order. */
+    private int32;
     private advance;
     /**
      * Advances the read position by the specified number of bits without writing data.
@@ -423,7 +435,7 @@ export declare class BufferReader {
      *
      * @throws {RangeError} If bitIndex is not in range [0, 7].
      * @throws {RangeError} If byteOffset is negative.
-     * @throws {RangeError} If buffer overflow occurs and buffer is not resizable.
+     * @throws {RangeError} If buffer overflow occurs.
      *
      * @example
      * reader.move(10); // Move to byte offset 10

@@ -26,9 +26,8 @@ export function createBuffer(allocation: number | Buffers | ArrayLike<number> = 
 		return new Uint8Array(allocation);
 	}
 
-
 	// Unwrap our own wrappers so the slice applies to them too
-	const source = allocation instanceof BufferReader || allocation instanceof BufferWriter ? allocation.buffer : allocation;
+	const source = allocation instanceof BufferWriter ? allocation.bytes : allocation instanceof BufferReader ? allocation.buffer : allocation;
 	const offset = slice?.start ?? 0;
 
 	let output: Uint8Array;
@@ -36,6 +35,10 @@ export function createBuffer(allocation: number | Buffers | ArrayLike<number> = 
 	if (source instanceof ArrayBuffer || (typeof SharedArrayBuffer !== "undefined" && source instanceof SharedArrayBuffer)) {
 		output = new Uint8Array(source, offset, slice?.byteLength);
 	} else if (ArrayBuffer.isView(source)) {
+		if (!slice && !clone && source instanceof Uint8Array) {
+			return source;
+		}
+
 		const length = slice?.byteLength ?? source.byteLength - offset;
 
 		// The view may sit inside a larger buffer, so the bounds are checked against the view rather than its ArrayBuffer
