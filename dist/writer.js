@@ -809,7 +809,7 @@ export class BufferWriter {
         offset = (offset ?? this.offset) | 0;
         advance ??= offset === this.offset;
         this.ensureCapacity(bytes, offset);
-        if (offset !== this.offset) {
+        if (!advance || offset !== this.offset) {
             this.furthest = Math.max(this.furthest, offset + bytes);
         }
         if (advance) {

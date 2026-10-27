@@ -34,7 +34,7 @@ export class BufferReader {
 	public readonly buffer: Uint8Array;
 
 	/** The endianness of the buffer (true for little-endian, false for big-endian). */
-	private readonly endianness: boolean;
+	public readonly endianness: boolean;
 
 	/** The total length of the buffer in bytes. */
 	public readonly byteLength: number;
@@ -43,10 +43,10 @@ export class BufferReader {
 	private lazyView?: DataView;
 
 	/** The byte offset where bit operations are currently positioned. */
-	private bitOffset: number;
+	public bitOffset: number;
 
 	/** The bit index within the current byte (0-7). */
-	private bitIndex: number;
+	public bitIndex: number;
 
 	/** The current read position in bytes. */
 	public offset: number;

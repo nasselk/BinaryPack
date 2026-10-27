@@ -27,15 +27,15 @@ export declare class BufferReader {
     /** The underlying Uint8Array buffer being read from. */
     readonly buffer: Uint8Array;
     /** The endianness of the buffer (true for little-endian, false for big-endian). */
-    private readonly endianness;
+    readonly endianness: boolean;
     /** The total length of the buffer in bytes. */
     readonly byteLength: number;
     /** DataView used only for 64-bit integers, created on first use. */
     private lazyView?;
     /** The byte offset where bit operations are currently positioned. */
-    private bitOffset;
+    bitOffset: number;
     /** The bit index within the current byte (0-7). */
-    private bitIndex;
+    bitIndex: number;
     /** The current read position in bytes. */
     offset: number;
     /**

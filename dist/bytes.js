@@ -1,7 +1,7 @@
 // Shared scratch space for converting floats to and from bytes without a DataView.
 // These are created once when the module loads and reused by every reader and writer.
-const F16 = new Float16Array(1);
-const F16B = new Uint8Array(F16.buffer);
+//const F16 = new Float16Array(1);
+//const F16B = new Uint8Array(F16.buffer);
 const F32 = new Float32Array(1);
 const F32B = new Uint8Array(F32.buffer);
 const F64 = new Float64Array(1);
@@ -9,26 +9,26 @@ const F64B = new Uint8Array(F64.buffer);
 /** True when the machine stores numbers in little-endian order (practically all hardware). */
 export const NATIVE_LE = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
 export function getFloat16(buffer, offset, littleEndian) {
-    if (littleEndian === NATIVE_LE) {
-        F16B[0] = buffer[offset];
-        F16B[1] = buffer[offset + 1];
-    }
-    else {
-        F16B[0] = buffer[offset + 1];
-        F16B[1] = buffer[offset];
-    }
-    return F16[0];
+    throw new Error("Float16 is not implemented yet");
+    // if (littleEndian === NATIVE_LE) {
+    // 	F16B[0] = buffer[offset];
+    // 	F16B[1] = buffer[offset + 1];
+    // } else {
+    // 	F16B[0] = buffer[offset + 1];
+    // 	F16B[1] = buffer[offset];
+    // }
+    // return F16[0];
 }
 export function setFloat16(buffer, offset, value, littleEndian) {
-    F16[0] = value;
-    if (littleEndian === NATIVE_LE) {
-        buffer[offset] = F16B[0];
-        buffer[offset + 1] = F16B[1];
-    }
-    else {
-        buffer[offset] = F16B[1];
-        buffer[offset + 1] = F16B[0];
-    }
+    throw new Error("Float16 is not implemented yet");
+    // F16[0] = value;
+    // if (littleEndian === NATIVE_LE) {
+    // 	buffer[offset] = F16B[0];
+    // 	buffer[offset + 1] = F16B[1];
+    // } else {
+    // 	buffer[offset] = F16B[1];
+    // 	buffer[offset + 1] = F16B[0];
+    // }
 }
 export function getFloat32(buffer, offset, littleEndian) {
     if (littleEndian === NATIVE_LE) {

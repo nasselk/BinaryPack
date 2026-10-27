@@ -55,7 +55,7 @@ export class BufferWriter {
 	private furthest: number;
 
 	/** The endianness of the buffer (true for little-endian, false for big-endian). */
-	private readonly endianness: boolean;
+	public readonly endianness: boolean;
 
 	/**
 	 * Creates a new BufferWriter instance with specified byte length.
@@ -1016,7 +1016,7 @@ export class BufferWriter {
 
 		this.ensureCapacity(bytes, offset);
 
-		if (offset !== this.offset) {
+		if (!advance || offset !== this.offset) {
 			this.furthest = Math.max(this.furthest, offset + bytes);
 		}
 

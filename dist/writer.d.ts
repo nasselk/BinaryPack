@@ -43,7 +43,7 @@ export declare class BufferWriter {
     /** The furthest byte written before the position last moved backwards. `length` combines it with `offset`. */
     private furthest;
     /** The endianness of the buffer (true for little-endian, false for big-endian). */
-    private readonly endianness;
+    readonly endianness: boolean;
     /**
      * Creates a new BufferWriter instance with specified byte length.
      *
