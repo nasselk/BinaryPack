@@ -224,7 +224,8 @@ export class BufferWriter {
      * // Write without advancing (for peeking)
      * writer.writeBits(7, 5, false, false);
      */
-    writeBits(value = 0, bits = 1, signed = false, offset = this.bitOffset, advance = true) {
+    writeBits(value = 0, bits = 1, signed = false, offset, advance = true) {
+        offset = (offset ?? this.bitOffset) | 0;
         if (bits < 1 || bits > 32) {
             throw new RangeError("Bits must be in the range [1, 32]");
         }
@@ -300,7 +301,8 @@ export class BufferWriter {
         }
         return this;
     }
-    writeBoolean(value = false, byte = false, offset = this.offset, advance) {
+    writeBoolean(value = false, byte = false, offset, advance) {
+        offset = (offset ?? this.offset) | 0;
         value = +value; // To number
         if (byte) {
             return this.writeUint8(value ? 1 : 0, offset, advance);
@@ -345,7 +347,8 @@ export class BufferWriter {
      * writer.writeUint8(255); // Write max uint8
      * writer.writeUint8(100, 10); // Write at offset 10
      */
-    writeUint8(value = 0, offset = this.offset, advance) {
+    writeUint8(value = 0, offset, advance) {
+        offset = (offset ?? this.offset) | 0;
         this.advance(1, offset, advance);
         this.buffer[offset] = value;
         return this;
@@ -364,7 +367,8 @@ export class BufferWriter {
      * writer.writeInt8(-128); // Write min int8
      * writer.writeInt8(127); // Write max int8
      */
-    writeInt8(value = 0, offset = this.offset, advance) {
+    writeInt8(value = 0, offset, advance) {
+        offset = (offset ?? this.offset) | 0;
         this.advance(1, offset, advance);
         this.buffer[offset] = value;
         return this;
@@ -382,7 +386,8 @@ export class BufferWriter {
      * @example
      * writer.writeUint16(65535); // Write max uint16
      */
-    writeUint16(value = 0, offset = this.offset, advance) {
+    writeUint16(value = 0, offset, advance) {
+        offset = (offset ?? this.offset) | 0;
         this.advance(2, offset, advance);
         this.uint16(offset, value);
         return this;
@@ -401,7 +406,8 @@ export class BufferWriter {
      * writer.writeInt16(-32768); // Write min int16
      * writer.writeInt16(32767); // Write max int16
      */
-    writeInt16(value = 0, offset = this.offset, advance) {
+    writeInt16(value = 0, offset, advance) {
+        offset = (offset ?? this.offset) | 0;
         this.advance(2, offset, advance);
         this.uint16(offset, value);
         return this;
@@ -419,7 +425,8 @@ export class BufferWriter {
      * @example
      * writer.writeFloat16(3.14);
      */
-    writeFloat16(value = 0, offset = this.offset, advance) {
+    writeFloat16(value = 0, offset, advance) {
+        offset = (offset ?? this.offset) | 0;
         this.advance(2, offset, advance);
         setFloat16(this.buffer, offset, value, this.endianness);
         return this;
@@ -437,7 +444,8 @@ export class BufferWriter {
      * @example
      * writer.writeUint32(4294967295); // Write max uint32
      */
-    writeUint32(value = 0, offset = this.offset, advance) {
+    writeUint32(value = 0, offset, advance) {
+        offset = (offset ?? this.offset) | 0;
         this.advance(4, offset, advance);
         this.uint32(offset, value);
         return this;
@@ -455,7 +463,8 @@ export class BufferWriter {
      * @example
      * writer.writeInt32(-2147483648); // Write min int32
      */
-    writeInt32(value = 0, offset = this.offset, advance) {
+    writeInt32(value = 0, offset, advance) {
+        offset = (offset ?? this.offset) | 0;
         this.advance(4, offset, advance);
         this.uint32(offset, value);
         return this;
@@ -473,7 +482,8 @@ export class BufferWriter {
      * @example
      * writer.writeFloat32(3.14159); // IEEE 754 single precision
      */
-    writeFloat32(value = 0, offset = this.offset, advance) {
+    writeFloat32(value = 0, offset, advance) {
+        offset = (offset ?? this.offset) | 0;
         this.advance(4, offset, advance);
         setFloat32(this.buffer, offset, value, this.endianness);
         return this;
@@ -491,7 +501,8 @@ export class BufferWriter {
      * @example
      * writer.writeUint64(9007199254740991n); // Write BigInt
      */
-    writeUint64(value = 0n, offset = this.offset, advance) {
+    writeUint64(value = 0n, offset, advance) {
+        offset = (offset ?? this.offset) | 0;
         this.advance(8, offset, advance);
         this.view.setBigUint64(offset, value, this.endianness);
         return this;
@@ -509,7 +520,8 @@ export class BufferWriter {
      * @example
      * writer.writeInt64(-9007199254740991n); // Write signed BigInt
      */
-    writeInt64(value = 0n, offset = this.offset, advance) {
+    writeInt64(value = 0n, offset, advance) {
+        offset = (offset ?? this.offset) | 0;
         this.advance(8, offset, advance);
         this.view.setBigInt64(offset, value, this.endianness);
         return this;
@@ -527,7 +539,8 @@ export class BufferWriter {
      * @example
      * writer.writeFloat64(Math.PI); // IEEE 754 double precision
      */
-    writeFloat64(value = 0, offset = this.offset, advance) {
+    writeFloat64(value = 0, offset, advance) {
+        offset = (offset ?? this.offset) | 0;
         this.advance(8, offset, advance);
         setFloat64(this.buffer, offset, value, this.endianness);
         return this;
@@ -551,7 +564,8 @@ export class BufferWriter {
      * writer.writeUint(100); // Uses 1 byte
      * writer.writeUint(10000); // Uses 2 bytes
      */
-    writeUint(value = 0, offset = this.offset, advance = true) {
+    writeUint(value = 0, offset, advance = true) {
+        offset = (offset ?? this.offset) | 0;
         // Ensure enough space before writing to avoid multiple expansions
         if (this.resizable) {
             const bitsNeeded = value === 0 ? 1 : 32 - Math.clz32(value);
@@ -590,7 +604,8 @@ export class BufferWriter {
      * writer.writeInt(-100);  // Uses 2 bytes
      * writer.writeInt(10000); // Uses 2 bytes
      */
-    writeInt(value = 0, offset = this.offset, advance = true) {
+    writeInt(value = 0, offset, advance = true) {
+        offset = (offset ?? this.offset) | 0;
         const zigzag = value >= 0 ? value * 2 : -value * 2 - 1;
         return this.writeUint(zigzag, offset, advance);
     }
@@ -619,7 +634,8 @@ export class BufferWriter {
      * // Write everything from byte 4 onwards
      * writer.writeBuffer(data, false, { start: 4 });
      */
-    writeBuffer(buffer, writeSize = false, slice, offset = this.offset, advance) {
+    writeBuffer(buffer, writeSize = false, slice, offset, advance) {
+        offset = (offset ?? this.offset) | 0;
         // Normalises to a byte view, so multi-byte element types are copied as raw bytes and the slice is applied
         const source = createBuffer(buffer, false, slice);
         const length = source.byteLength;
@@ -649,7 +665,9 @@ export class BufferWriter {
      * // Write string with 2-byte length prefix
      * writer.writeString("Hello", true);
      */
-    writeString(text = "", writeSize = true, offset = this.offset, advance = offset === this.offset) {
+    writeString(text = "", writeSize = true, offset, advance) {
+        offset = (offset ?? this.offset) | 0;
+        advance ??= offset === this.offset;
         const start = writeSize ? offset + 2 : offset;
         // Worst case: 3 bytes per character. Grow once instead of encoding the string just to measure it.
         if (start + text.length * 3 > this.byteLength) {
@@ -726,7 +744,8 @@ export class BufferWriter {
      *
      * @throws {RangeError} If buffer overflow occurs and buffer is not resizable.
      */
-    ensureCapacity(bytes, offset = this.offset) {
+    ensureCapacity(bytes, offset) {
+        offset = (offset ?? this.offset) | 0;
         if (offset + bytes > this.byteLength) {
             if (this.resizable) {
                 const required = offset + bytes;
@@ -786,7 +805,9 @@ export class BufferWriter {
             b[offset + 3] = value;
         }
     }
-    advance(bytes = 1, offset = this.offset, advance = offset === this.offset) {
+    advance(bytes = 1, offset, advance) {
+        offset = (offset ?? this.offset) | 0;
+        advance ??= offset === this.offset;
         this.ensureCapacity(bytes, offset);
         if (offset !== this.offset) {
             this.furthest = Math.max(this.furthest, offset + bytes);

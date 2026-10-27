@@ -286,7 +286,9 @@ export class BufferWriter {
 	 * // Write without advancing (for peeking)
 	 * writer.writeBits(7, 5, false, false);
 	 */
-	public writeBits(value: number = 0, bits: number = 1, signed: boolean = false, offset: number = this.bitOffset, advance: boolean = true): this {
+	public writeBits(value: number = 0, bits: number = 1, signed: boolean = false, offset?: number, advance: boolean = true): this {
+		offset = (offset ?? this.bitOffset) | 0;
+
 		if (bits < 1 || bits > 32) {
 			throw new RangeError("Bits must be in the range [1, 32]");
 		}
@@ -413,7 +415,9 @@ export class BufferWriter {
 	 */
 	public writeBoolean(value?: boolean | number, byte?: true, offset?: number, advance?: boolean): this;
 
-	public writeBoolean(value: boolean | number = false, byte: boolean = false, offset: number = this.offset, advance?: boolean): this {
+	public writeBoolean(value: boolean | number = false, byte: boolean = false, offset?: number, advance?: boolean): this {
+		offset = (offset ?? this.offset) | 0;
+
 		value = +value; // To number
 
 		if (byte) {
@@ -463,7 +467,9 @@ export class BufferWriter {
 	 * writer.writeUint8(255); // Write max uint8
 	 * writer.writeUint8(100, 10); // Write at offset 10
 	 */
-	public writeUint8(value: number = 0, offset: number = this.offset, advance?: boolean): this {
+	public writeUint8(value: number = 0, offset?: number, advance?: boolean): this {
+		offset = (offset ?? this.offset) | 0;
+
 		this.advance(1, offset, advance);
 
 		this.buffer[offset] = value;
@@ -485,7 +491,9 @@ export class BufferWriter {
 	 * writer.writeInt8(-128); // Write min int8
 	 * writer.writeInt8(127); // Write max int8
 	 */
-	public writeInt8(value: number = 0, offset: number = this.offset, advance?: boolean): this {
+	public writeInt8(value: number = 0, offset?: number, advance?: boolean): this {
+		offset = (offset ?? this.offset) | 0;
+
 		this.advance(1, offset, advance);
 
 		this.buffer[offset] = value;
@@ -506,7 +514,9 @@ export class BufferWriter {
 	 * @example
 	 * writer.writeUint16(65535); // Write max uint16
 	 */
-	public writeUint16(value: number = 0, offset: number = this.offset, advance?: boolean): this {
+	public writeUint16(value: number = 0, offset?: number, advance?: boolean): this {
+		offset = (offset ?? this.offset) | 0;
+
 		this.advance(2, offset, advance);
 
 		this.uint16(offset, value);
@@ -528,7 +538,9 @@ export class BufferWriter {
 	 * writer.writeInt16(-32768); // Write min int16
 	 * writer.writeInt16(32767); // Write max int16
 	 */
-	public writeInt16(value: number = 0, offset: number = this.offset, advance?: boolean): this {
+	public writeInt16(value: number = 0, offset?: number, advance?: boolean): this {
+		offset = (offset ?? this.offset) | 0;
+
 		this.advance(2, offset, advance);
 
 		this.uint16(offset, value);
@@ -549,7 +561,9 @@ export class BufferWriter {
 	 * @example
 	 * writer.writeFloat16(3.14);
 	 */
-	public writeFloat16(value: number = 0, offset: number = this.offset, advance?: boolean): this {
+	public writeFloat16(value: number = 0, offset?: number, advance?: boolean): this {
+		offset = (offset ?? this.offset) | 0;
+
 		this.advance(2, offset, advance);
 
 		setFloat16(this.buffer, offset, value, this.endianness);
@@ -570,7 +584,9 @@ export class BufferWriter {
 	 * @example
 	 * writer.writeUint32(4294967295); // Write max uint32
 	 */
-	public writeUint32(value: number = 0, offset: number = this.offset, advance?: boolean): this {
+	public writeUint32(value: number = 0, offset?: number, advance?: boolean): this {
+		offset = (offset ?? this.offset) | 0;
+
 		this.advance(4, offset, advance);
 
 		this.uint32(offset, value);
@@ -591,7 +607,9 @@ export class BufferWriter {
 	 * @example
 	 * writer.writeInt32(-2147483648); // Write min int32
 	 */
-	public writeInt32(value: number = 0, offset: number = this.offset, advance?: boolean): this {
+	public writeInt32(value: number = 0, offset?: number, advance?: boolean): this {
+		offset = (offset ?? this.offset) | 0;
+
 		this.advance(4, offset, advance);
 
 		this.uint32(offset, value);
@@ -612,7 +630,9 @@ export class BufferWriter {
 	 * @example
 	 * writer.writeFloat32(3.14159); // IEEE 754 single precision
 	 */
-	public writeFloat32(value: number = 0, offset: number = this.offset, advance?: boolean): this {
+	public writeFloat32(value: number = 0, offset?: number, advance?: boolean): this {
+		offset = (offset ?? this.offset) | 0;
+
 		this.advance(4, offset, advance);
 
 		setFloat32(this.buffer, offset, value, this.endianness);
@@ -633,7 +653,9 @@ export class BufferWriter {
 	 * @example
 	 * writer.writeUint64(9007199254740991n); // Write BigInt
 	 */
-	public writeUint64(value: bigint = 0n, offset: number = this.offset, advance?: boolean): this {
+	public writeUint64(value: bigint = 0n, offset?: number, advance?: boolean): this {
+		offset = (offset ?? this.offset) | 0;
+
 		this.advance(8, offset, advance);
 
 		this.view.setBigUint64(offset, value, this.endianness);
@@ -654,7 +676,9 @@ export class BufferWriter {
 	 * @example
 	 * writer.writeInt64(-9007199254740991n); // Write signed BigInt
 	 */
-	public writeInt64(value: bigint = 0n, offset: number = this.offset, advance?: boolean): this {
+	public writeInt64(value: bigint = 0n, offset?: number, advance?: boolean): this {
+		offset = (offset ?? this.offset) | 0;
+
 		this.advance(8, offset, advance);
 
 		this.view.setBigInt64(offset, value, this.endianness);
@@ -675,7 +699,9 @@ export class BufferWriter {
 	 * @example
 	 * writer.writeFloat64(Math.PI); // IEEE 754 double precision
 	 */
-	public writeFloat64(value: number = 0, offset: number = this.offset, advance?: boolean): this {
+	public writeFloat64(value: number = 0, offset?: number, advance?: boolean): this {
+		offset = (offset ?? this.offset) | 0;
+
 		this.advance(8, offset, advance);
 
 		setFloat64(this.buffer, offset, value, this.endianness);
@@ -702,7 +728,9 @@ export class BufferWriter {
 	 * writer.writeUint(100); // Uses 1 byte
 	 * writer.writeUint(10000); // Uses 2 bytes
 	 */
-	public writeUint(value: number = 0, offset: number = this.offset, advance: boolean = true): this {
+	public writeUint(value: number = 0, offset?: number, advance: boolean = true): this {
+		offset = (offset ?? this.offset) | 0;
+
 		// Ensure enough space before writing to avoid multiple expansions
 		if (this.resizable) {
 			const bitsNeeded = value === 0 ? 1 : 32 - Math.clz32(value);
@@ -747,7 +775,9 @@ export class BufferWriter {
 	 * writer.writeInt(-100);  // Uses 2 bytes
 	 * writer.writeInt(10000); // Uses 2 bytes
 	 */
-	public writeInt(value: number = 0, offset: number = this.offset, advance: boolean = true): this {
+	public writeInt(value: number = 0, offset?: number, advance: boolean = true): this {
+		offset = (offset ?? this.offset) | 0;
+
 		const zigzag = value >= 0 ? value * 2 : -value * 2 - 1;
 
 		return this.writeUint(zigzag, offset, advance);
@@ -778,7 +808,9 @@ export class BufferWriter {
 	 * // Write everything from byte 4 onwards
 	 * writer.writeBuffer(data, false, { start: 4 });
 	 */
-	public writeBuffer(buffer: Buffers, writeSize: boolean = false, slice?: BufferSlice, offset: number = this.offset, advance?: boolean): this {
+	public writeBuffer(buffer: Buffers, writeSize: boolean = false, slice?: BufferSlice, offset?: number, advance?: boolean): this {
+		offset = (offset ?? this.offset) | 0;
+
 		// Normalises to a byte view, so multi-byte element types are copied as raw bytes and the slice is applied
 		const source = createBuffer(buffer, false, slice);
 		const length = source.byteLength;
@@ -814,7 +846,10 @@ export class BufferWriter {
 	 * // Write string with 2-byte length prefix
 	 * writer.writeString("Hello", true);
 	 */
-	public writeString(text: string = "", writeSize: boolean = true, offset: number = this.offset, advance: boolean = offset === this.offset): this {
+	public writeString(text: string = "", writeSize: boolean = true, offset?: number, advance?: boolean): this {
+		offset = (offset ?? this.offset) | 0;
+		advance ??= offset === this.offset;
+
 		const start = writeSize ? offset + 2 : offset;
 
 		// Worst case: 3 bytes per character. Grow once instead of encoding the string just to measure it.
@@ -908,7 +943,9 @@ export class BufferWriter {
 	 *
 	 * @throws {RangeError} If buffer overflow occurs and buffer is not resizable.
 	 */
-	private ensureCapacity(bytes: number, offset: number = this.offset): this {
+	private ensureCapacity(bytes: number, offset?: number): this {
+		offset = (offset ?? this.offset) | 0;
+
 		if (offset + bytes > this.byteLength) {
 			if (this.resizable) {
 				const required = offset + bytes;
@@ -973,7 +1010,10 @@ export class BufferWriter {
 		}
 	}
 
-	private advance(bytes: number = 1, offset: number = this.offset, advance: boolean = offset === this.offset): this {
+	private advance(bytes: number = 1, offset?: number, advance?: boolean): this {
+		offset = (offset ?? this.offset) | 0;
+		advance ??= offset === this.offset;
+
 		this.ensureCapacity(bytes, offset);
 
 		if (offset !== this.offset) {

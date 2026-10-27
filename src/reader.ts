@@ -148,7 +148,9 @@ export class BufferReader {
 	 * // Peek at next 5 bits without advancing
 	 * const peek = reader.readBits(5, false, false);
 	 */
-	public readBits(bits: number = 1, signed: boolean = false, advance: boolean = true, offset: number = this.bitOffset): number {
+	public readBits(bits: number = 1, signed: boolean = false, advance: boolean = true, offset?: number): number {
+		offset = (offset ?? this.bitOffset) | 0;
+
 		if (bits < 1 || bits > 32) {
 			throw new RangeError("Bits must be in the range [1, 32]");
 		}
@@ -242,7 +244,9 @@ export class BufferReader {
 	 * // Peek at byte 10 without advancing
 	 * const peek = reader.readBoolean(true, 10, false);
 	 */
-	public readBoolean(byte: boolean = false, advance?: boolean, offset: number = this.offset): boolean {
+	public readBoolean(byte: boolean = false, advance?: boolean, offset?: number): boolean {
+		offset = (offset ?? this.offset) | 0;
+
 		if (byte) {
 			return Boolean(this.readUint8(advance, offset));
 		} else {
@@ -288,7 +292,9 @@ export class BufferReader {
 	 * const peek = reader.readUint8(false); // Peek without advancing
 	 * const specific = reader.readUint8(true, 10); // Read from offset 10
 	 */
-	public readUint8(advance: boolean = true, offset: number = this.offset): number {
+	public readUint8(advance: boolean = true, offset?: number): number {
+		offset = (offset ?? this.offset) | 0;
+
 		this.checkBounds(offset, 1);
 
 		const value = this.buffer[offset];
@@ -309,7 +315,9 @@ export class BufferReader {
 	 * @example
 	 * const byte = reader.readInt8(); // -128 to 127
 	 */
-	public readInt8(advance: boolean = true, offset: number = this.offset): number {
+	public readInt8(advance: boolean = true, offset?: number): number {
+		offset = (offset ?? this.offset) | 0;
+
 		this.checkBounds(offset, 1);
 
 		const value = (this.buffer[offset] << 24) >> 24;
@@ -330,7 +338,9 @@ export class BufferReader {
 	 * @example
 	 * const short = reader.readUint16(); // 0-65535
 	 */
-	public readUint16(advance: boolean = true, offset: number = this.offset): number {
+	public readUint16(advance: boolean = true, offset?: number): number {
+		offset = (offset ?? this.offset) | 0;
+
 		this.checkBounds(offset, 2);
 
 		const value = this.uint16(offset);
@@ -351,7 +361,9 @@ export class BufferReader {
 	 * @example
 	 * const value = reader.readInt16(); // -32768 to 32767
 	 */
-	public readInt16(advance: boolean = true, offset: number = this.offset): number {
+	public readInt16(advance: boolean = true, offset?: number): number {
+		offset = (offset ?? this.offset) | 0;
+
 		this.checkBounds(offset, 2);
 
 		const value = (this.uint16(offset) << 16) >> 16;
@@ -372,7 +384,9 @@ export class BufferReader {
 	 * @example
 	 * const half = reader.readFloat16(); // 16-bit float
 	 */
-	public readFloat16(advance: boolean = true, offset: number = this.offset): number {
+	public readFloat16(advance: boolean = true, offset?: number): number {
+		offset = (offset ?? this.offset) | 0;
+
 		this.checkBounds(offset, 2);
 
 		const value = getFloat16(this.buffer, offset, this.endianness);
@@ -393,7 +407,9 @@ export class BufferReader {
 	 * @example
 	 * const integer = reader.readUint32(); // 0-4294967295
 	 */
-	public readUint32(advance: boolean = true, offset: number = this.offset): number {
+	public readUint32(advance: boolean = true, offset?: number): number {
+		offset = (offset ?? this.offset) | 0;
+
 		this.checkBounds(offset, 4);
 
 		const value = this.int32(offset) >>> 0;
@@ -414,7 +430,9 @@ export class BufferReader {
 	 * @example
 	 * const int = reader.readInt32(); // ±2.1 billion
 	 */
-	public readInt32(advance: boolean = true, offset: number = this.offset): number {
+	public readInt32(advance: boolean = true, offset?: number): number {
+		offset = (offset ?? this.offset) | 0;
+
 		this.checkBounds(offset, 4);
 
 		const value = this.int32(offset);
@@ -435,7 +453,9 @@ export class BufferReader {
 	 * @example
 	 * const float = reader.readFloat32(); // IEEE 754 single precision
 	 */
-	public readFloat32(advance: boolean = true, offset: number = this.offset): number {
+	public readFloat32(advance: boolean = true, offset?: number): number {
+		offset = (offset ?? this.offset) | 0;
+
 		this.checkBounds(offset, 4);
 
 		const value = getFloat32(this.buffer, offset, this.endianness);
@@ -456,7 +476,9 @@ export class BufferReader {
 	 * @example
 	 * const bigInt = reader.readUint64(); // Returns BigInt
 	 */
-	public readUint64(advance: boolean = true, offset: number = this.offset): bigint {
+	public readUint64(advance: boolean = true, offset?: number): bigint {
+		offset = (offset ?? this.offset) | 0;
+
 		const value = this.view.getBigUint64(offset, this.endianness);
 
 		this.advance(8, offset, advance);
@@ -475,7 +497,9 @@ export class BufferReader {
 	 * @example
 	 * const bigInt = reader.readInt64(); // Returns BigInt
 	 */
-	public readInt64(advance: boolean = true, offset: number = this.offset): bigint {
+	public readInt64(advance: boolean = true, offset?: number): bigint {
+		offset = (offset ?? this.offset) | 0;
+
 		const value = this.view.getBigInt64(offset, this.endianness);
 
 		this.advance(8, offset, advance);
@@ -494,7 +518,9 @@ export class BufferReader {
 	 * @example
 	 * const double = reader.readFloat64(); // IEEE 754 double precision
 	 */
-	public readFloat64(advance: boolean = true, offset: number = this.offset): number {
+	public readFloat64(advance: boolean = true, offset?: number): number {
+		offset = (offset ?? this.offset) | 0;
+
 		this.checkBounds(offset, 8);
 
 		const value = getFloat64(this.buffer, offset, this.endianness);
@@ -522,7 +548,9 @@ export class BufferReader {
 	 * const varInt = reader.readUint(); // Variable length encoding
 	 * // Value 100 uses 1 byte, value 10000 uses 2 bytes
 	 */
-	public readUint(advance: boolean = true, offset: number = this.offset): number {
+	public readUint(advance: boolean = true, offset?: number): number {
+		offset = (offset ?? this.offset) | 0;
+
 		let result = 0;
 		let shift = 0;
 		let byte: number;
@@ -560,7 +588,9 @@ export class BufferReader {
 	 * const signedInt = reader.readInt(); // Variable length encoding
 	 * // Value -1 uses 1 byte, value -100 uses 2 bytes
 	 */
-	public readInt(advance: boolean = true, offset: number = this.offset): number {
+	public readInt(advance: boolean = true, offset?: number): number {
+		offset = (offset ?? this.offset) | 0;
+
 		const zigzag = this.readUint(advance, offset);
 
 		return zigzag % 2 === 0 ? zigzag / 2 : -(zigzag + 1) / 2;
@@ -606,7 +636,9 @@ export class BufferReader {
 	 */
 	public readBuffer(bytes?: number, clone?: boolean, advance?: boolean, offset?: number): Uint8Array;
 
-	public readBuffer(size?: number | boolean, clone: boolean = false, advance: boolean = true, offset: number = this.offset): Uint8Array {
+	public readBuffer(size?: number | boolean, clone: boolean = false, advance: boolean = true, offset?: number): Uint8Array {
+		offset = (offset ?? this.offset) | 0;
+
 		let length: number;
 
 		if (size === true) {
@@ -666,7 +698,9 @@ export class BufferReader {
 	 */
 	public readString(bytes?: number, advance?: boolean, offset?: number): string;
 
-	public readString(a: number | boolean = true, advance: boolean = true, offset: number = this.offset): string {
+	public readString(a: number | boolean = true, advance: boolean = true, offset?: number): string {
+		offset = (offset ?? this.offset) | 0;
+
 		let start = offset;
 		let length: number;
 
@@ -730,7 +764,10 @@ export class BufferReader {
 		return this.endianness ? b[offset] | (b[offset + 1] << 8) | (b[offset + 2] << 16) | (b[offset + 3] << 24) : (b[offset] << 24) | (b[offset + 1] << 16) | (b[offset + 2] << 8) | b[offset + 3];
 	}
 
-	private advance(bytes: number = 1, offset: number = this.offset, advance: boolean = offset === this.offset): this {
+	private advance(bytes: number = 1, offset?: number, advance?: boolean): this {
+		offset = (offset ?? this.offset) | 0;
+		advance ??= offset === this.offset;
+
 		if (advance) {
 			this.advanceBytes(offset + bytes - this.offset);
 		}
