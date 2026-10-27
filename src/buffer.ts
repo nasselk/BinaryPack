@@ -35,7 +35,7 @@ export function createBuffer(allocation: number | Buffers | ArrayLike<number> = 
 	if (source instanceof ArrayBuffer || (typeof SharedArrayBuffer !== "undefined" && source instanceof SharedArrayBuffer)) {
 		output = new Uint8Array(source, offset, slice?.byteLength);
 	} else if (ArrayBuffer.isView(source)) {
-		if (!slice && !clone && source instanceof Uint8Array) {
+		if (!slice && !clone && source.constructor === Uint8Array) {
 			return source;
 		}
 

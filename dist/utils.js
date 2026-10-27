@@ -18,4 +18,9 @@ export function clamp(value, min, max) {
     }
     return Math.min(Math.max(value, min), max);
 }
+export const utf8Write = globalThis.Buffer?.prototype?.utf8Write;
+export const utf8Slice = globalThis.Buffer?.prototype?.utf8Slice;
+export const UNSIGNED_MAX = Array.from({ length: 33 }, (_, bits) => 2 ** bits - 1);
+export const SIGNED_MIN = Array.from({ length: 33 }, (_, bits) => (bits ? -(2 ** (bits - 1)) : 0));
+export const SIGNED_MAX = Array.from({ length: 33 }, (_, bits) => (bits ? 2 ** (bits - 1) - 1 : 0));
 //# sourceMappingURL=utils.js.map

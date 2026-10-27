@@ -13,4 +13,9 @@
  * clamp(15, 0, 10) // 10
  */
 export declare function clamp(value: number, min: number, max: number): number;
+export declare const utf8Write: ((this: Uint8Array, text: string, offset: number) => number) | undefined;
+export declare const utf8Slice: ((this: Uint8Array, start: number, end: number) => string) | undefined;
+export declare const UNSIGNED_MAX: number[];
+export declare const SIGNED_MIN: number[];
+export declare const SIGNED_MAX: number[];
 //# sourceMappingURL=utils.d.ts.map

@@ -1,5 +1,6 @@
 import { endianness, createBuffer, type Buffers } from "./buffer.js";
 import { getFloat16, getFloat32, getFloat64 } from "./bytes.js";
+import { SIGNED_MIN, utf8Slice } from "./utils.js";
 
 import { BufferWriter } from "./writer.js";
 
@@ -152,8 +153,6 @@ export class BufferReader {
 			throw new RangeError("Bits must be in the range [1, 32]");
 		}
 
-		let value = 0;
-		let bitsRead = 0;
 		let byteOffset = this.offset;
 		let bitOffset = offset;
 		let bitIndex = this.bitIndex;
@@ -166,35 +165,55 @@ export class BufferReader {
 			bitIndex = 0;
 		}
 
+		// Shortcut 1: the value is entirely in the bits left in the current byte
+		if (bitIndex !== 0 && bitIndex + bits <= 8) {
+			const value = ((this.buffer[bitOffset] >> bitIndex) & ((1 << bits) - 1)) + (signed ? SIGNED_MIN[bits] : 0);
+
+			if (advance) {
+				this.bitIndex = (bitIndex + bits) & 7;
+
+				if (this.bitIndex === 0) {
+					this.bitOffset = this.offset;
+				}
+			}
+
+			return value;
+		}
+
+		// Shortcut 2: no partial byte, and the value is in the next single byte
+		if (bitIndex === 0 && bits <= 8) {
+			const value = (this.buffer[byteOffset] & ((1 << bits) - 1)) + (signed ? SIGNED_MIN[bits] : 0);
+
+			if (advance) {
+				this.offset = byteOffset + 1;
+				this.bitIndex = bits & 7;
+				this.bitOffset = this.bitIndex === 0 ? byteOffset + 1 : byteOffset;
+			}
+
+			return value;
+		}
+
+		// General case: spans several bytes (unchanged)
+		let value = 0;
+		let bitsRead = 0;
+
 		while (bitsRead < bits) {
 			if (bitIndex === 0) {
 				bitOffset = byteOffset;
 				byteOffset++;
 			}
 
-			// Calculate how many bits we can read from current byte
-			const bitsInCurrentByte = 8 - bitIndex;
-			const bitsToRead = Math.min(bits - bitsRead, bitsInCurrentByte);
+			const bitsToRead = Math.min(bits - bitsRead, 8 - bitIndex);
 
-			// Read the current byte once
-			const currentByte = this.buffer[bitOffset];
-
-			// Extract the bits we want
-			const mask = (1 << bitsToRead) - 1;
-			const extractedBits = (currentByte >> bitIndex) & mask;
-
-			// Add to our result
-			value |= extractedBits << bitsRead;
-
-			// Update counters
+			value |= ((this.buffer[bitOffset] >> bitIndex) & ((1 << bitsToRead) - 1)) << bitsRead;
 			bitsRead += bitsToRead;
-			bitIndex = (bitIndex + bitsToRead) % 8;
+			bitIndex = (bitIndex + bitsToRead) & 7;
 		}
 
 		value >>>= 0;
 
 		if (signed) {
-			value += BufferWriter.rangeMin(bits, signed);
+			value += SIGNED_MIN[bits];
 		}
 
 		if (advance) {
@@ -648,9 +667,28 @@ export class BufferReader {
 	public readString(bytes?: number, advance?: boolean, offset?: number): string;
 
 	public readString(a: number | boolean = true, advance: boolean = true, offset: number = this.offset): string {
-		const buffer = this.readBuffer(a as any, false, advance, offset);
+		let start = offset;
+		let length: number;
 
-		return BufferReader.TEXT_DECODER.decode(buffer);
+		if (a === true) {
+			this.checkBounds(offset, 2);
+			length = this.uint16(offset);
+			start += 2;
+		} else if (a === false || a === undefined) {
+			length = this.byteLength - offset;
+		} else {
+			length = a;
+		}
+
+		this.checkBounds(start, length);
+
+		const text = utf8Slice ? utf8Slice.call(this.buffer, start, start + length) : BufferReader.TEXT_DECODER.decode(this.buffer.subarray(start, start + length));
+
+		if (advance) {
+			this.advanceBytes(start + length - this.offset);
+		}
+
+		return text;
 	}
 
 	/**

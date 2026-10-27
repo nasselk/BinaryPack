@@ -27,23 +27,23 @@ export declare class BufferWriter {
     /** The text encoder used for writing UTF-8 encoded strings. */
     static readonly TEXT_ENCODER: TextEncoder;
     /** Whether the buffer can automatically expand when capacity is exceeded. */
-    private readonly resizable;
-    /** The endianness of the buffer (true for little-endian, false for big-endian). */
-    private readonly endianness;
+    readonly resizable: boolean;
     /** The total length of the buffer in bytes. */
     byteLength: number;
     /** The underlying Uint8Array buffer being written to. */
     buffer: Uint8Array;
     /** The byte offset where bit operations are currently positioned. */
-    private bitOffset;
+    bitOffset: number;
     /** The bit index within the current byte (0-7). */
-    private bitIndex;
+    bitIndex: number;
     /** DataView used only for 64-bit integers, created on first use. */
     private lazyView?;
     /** The current write position in bytes. */
     offset: number;
-    /** The furthest byte written so far. Data ends here; the buffer may be larger. */
-    length: number;
+    /** The furthest byte written before the position last moved backwards. `length` combines it with `offset`. */
+    private furthest;
+    /** The endianness of the buffer (true for little-endian, false for big-endian). */
+    private readonly endianness;
     /**
      * Creates a new BufferWriter instance with specified byte length.
      *
@@ -649,6 +649,7 @@ export declare class BufferWriter {
      * // BufferWriter {2/10} [0:10]: [01 02 00 00 00 00 00 00 00 00]
      */
     toString(start?: number, end?: number): string;
+    get length(): number;
     /**
      * Gets the number of bytes remaining to be read from the current position.
      *

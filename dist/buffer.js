@@ -20,7 +20,7 @@ export function createBuffer(allocation = 0, clone = false, slice, clearMemory =
         output = new Uint8Array(source, offset, slice?.byteLength);
     }
     else if (ArrayBuffer.isView(source)) {
-        if (!slice && !clone && source instanceof Uint8Array) {
+        if (!slice && !clone && source.constructor === Uint8Array) {
             return source;
         }
         const length = slice?.byteLength ?? source.byteLength - offset;

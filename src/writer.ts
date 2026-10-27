@@ -1,7 +1,6 @@
 import { endianness, createBuffer, type Buffers, type BufferSlice } from "./buffer.js";
 import { setFloat16, setFloat32, setFloat64 } from "./bytes.js";
-
-import { clamp } from "./utils.js";
+import { clamp, SIGNED_MAX, SIGNED_MIN, UNSIGNED_MAX, utf8Write } from "./utils.js";
 
 /**
  * A binary buffer writer for efficient sequential writing of various data types.
@@ -32,10 +31,7 @@ export class BufferWriter {
 	public static readonly TEXT_ENCODER = new TextEncoder();
 
 	/** Whether the buffer can automatically expand when capacity is exceeded. */
-	private readonly resizable: boolean;
-
-	/** The endianness of the buffer (true for little-endian, false for big-endian). */
-	private readonly endianness: boolean;
+	public readonly resizable: boolean;
 
 	/** The total length of the buffer in bytes. */
 	public byteLength: number;
@@ -44,10 +40,10 @@ export class BufferWriter {
 	public buffer: Uint8Array;
 
 	/** The byte offset where bit operations are currently positioned. */
-	private bitOffset: number;
+	public bitOffset: number;
 
 	/** The bit index within the current byte (0-7). */
-	private bitIndex: number;
+	public bitIndex: number;
 
 	/** DataView used only for 64-bit integers, created on first use. */
 	private lazyView?: DataView;
@@ -55,8 +51,11 @@ export class BufferWriter {
 	/** The current write position in bytes. */
 	public offset: number;
 
-	/** The furthest byte written so far. Data ends here; the buffer may be larger. */
-	public length: number;
+	/** The furthest byte written before the position last moved backwards. `length` combines it with `offset`. */
+	private furthest: number;
+
+	/** The endianness of the buffer (true for little-endian, false for big-endian). */
+	private readonly endianness: boolean;
 
 	/**
 	 * Creates a new BufferWriter instance with specified byte length.
@@ -108,7 +107,7 @@ export class BufferWriter {
 		this.bitOffset = 0;
 		this.bitIndex = 0;
 		this.offset = 0;
-		this.length = 0;
+		this.furthest = 0;
 	}
 
 	/**
@@ -227,7 +226,24 @@ export class BufferWriter {
 	 * BufferWriter.stringByteLength("Hello 🌍"); // 10 (emoji is 4 bytes)
 	 */
 	public static stringByteLength(text: string): number {
-		return BufferWriter.TEXT_ENCODER.encode(text).length;
+		let bytes = 0;
+
+		for (let i = 0; i < text.length; i++) {
+			const code = text.charCodeAt(i);
+
+			if (code < 0x80) {
+				bytes += 1;
+			} else if (code < 0x800) {
+				bytes += 2;
+			} else if (code >= 0xd800 && code <= 0xdbff && (text.charCodeAt(i + 1) & 0xfc00) === 0xdc00) {
+				bytes += 4;
+				i++;
+			} else {
+				bytes += 3;
+			}
+		}
+
+		return bytes;
 	}
 
 	/**
@@ -275,8 +291,8 @@ export class BufferWriter {
 			throw new RangeError("Bits must be in the range [1, 32]");
 		}
 
-		const min = BufferWriter.rangeMin(bits, signed);
-		const max = BufferWriter.rangeMax(bits, signed);
+		const min = signed ? SIGNED_MIN[bits] : 0;
+		const max = signed ? SIGNED_MAX[bits] : UNSIGNED_MAX[bits];
 
 		if (value < min || value > max) {
 			throw new RangeError(`Value ${value} is out of range for ${bits} bits [ ${min}, ${max} ]`);
@@ -298,8 +314,38 @@ export class BufferWriter {
 			bitIndex = 0;
 		}
 
-		// The loop indexes the buffer directly, and out-of-range writes on a Uint8Array are dropped silently rather than throwing,
-		// so every byte about to be touched has to exist first. Any bits left in the current byte are already allocated.
+		// Shortcut 1: the value fits in the bits left in the current byte (no new byte, no capacity check, no loop)
+		if (bitIndex !== 0 && bitIndex + bits <= 8) {
+			this.buffer[bitOffset] |= value << bitIndex;
+
+			if (advance) {
+				this.bitIndex = (bitIndex + bits) & 7;
+
+				if (this.bitIndex === 0) {
+					this.bitOffset = this.offset; // byte is full: the next bits start a new one
+				}
+			}
+
+			return this;
+		}
+
+		// Shortcut 2: no partial byte, and the value fits in one new byte
+		if (bitIndex === 0 && bits <= 8) {
+			this.ensureCapacity(1, byteOffset);
+			this.buffer[byteOffset] = value;
+
+			if (advance) {
+				this.offset = byteOffset + 1;
+				this.bitIndex = bits & 7;
+				this.bitOffset = this.bitIndex === 0 ? byteOffset + 1 : byteOffset;
+			} else {
+				this.furthest = Math.max(this.furthest, byteOffset + 1);
+			}
+
+			return this;
+		}
+
+		// General case: spans several bytes (unchanged)
 		const spare = bitIndex === 0 ? 0 : 8 - bitIndex;
 
 		this.ensureCapacity(Math.ceil(Math.max(0, bits - spare) / 8), byteOffset);
@@ -310,31 +356,26 @@ export class BufferWriter {
 				byteOffset++;
 			}
 
-			const bitsInCurrentByte = 8 - bitIndex;
-			const bitsToWrite = Math.min(bits, bitsInCurrentByte);
-
-			const mask = (1 << bitsToWrite) - 1;
-			const bitsValue = value & mask;
+			const bitsToWrite = Math.min(bits, 8 - bitIndex);
+			const bitsValue = value & ((1 << bitsToWrite) - 1);
 
 			if (bitIndex === 0 && bitsToWrite === 8) {
 				this.buffer[bitOffset] = bitsValue;
 			} else {
-				let currentByte = bitIndex === 0 ? 0 : this.buffer[bitOffset];
-				currentByte |= bitsValue << bitIndex;
-
-				this.buffer[bitOffset] = currentByte;
+				this.buffer[bitOffset] = (bitIndex === 0 ? 0 : this.buffer[bitOffset]) | (bitsValue << bitIndex);
 			}
 
-			// Update counters
 			value >>>= bitsToWrite;
 			bits -= bitsToWrite;
-			bitIndex = (bitIndex + bitsToWrite) % 8;
+			bitIndex = (bitIndex + bitsToWrite) & 7;
 		}
 
 		if (advance) {
 			this.offset = byteOffset;
 			this.bitOffset = bitIndex === 0 ? byteOffset : bitOffset;
 			this.bitIndex = bitIndex;
+		} else {
+			this.furthest = Math.max(this.furthest, byteOffset);
 		}
 
 		return this;
@@ -393,6 +434,8 @@ export class BufferWriter {
 					this.bitOffset = target;
 					this.offset = target + 1;
 					this.bitIndex = 1;
+				} else {
+					this.furthest = Math.max(this.furthest, target + 1);
 				}
 			} else {
 				this.buffer[this.bitOffset] |= value << bitIndex;
@@ -772,32 +815,37 @@ export class BufferWriter {
 	 * writer.writeString("Hello", true);
 	 */
 	public writeString(text: string = "", writeSize: boolean = true, offset: number = this.offset, advance: boolean = offset === this.offset): this {
-		// If resizable, need to create a buffer first to know the size and allow for expansion
-		if (this.resizable) {
-			const buffer = BufferWriter.TEXT_ENCODER.encode(text);
+		const start = writeSize ? offset + 2 : offset;
 
-			this.writeBuffer(buffer, writeSize, undefined, offset, advance);
-		} else {
-			if (writeSize) {
-				offset += 2;
+		// Worst case: 3 bytes per character. Grow once instead of encoding the string just to measure it.
+		if (start + text.length * 3 > this.byteLength) {
+			const exact = BufferWriter.stringByteLength(text);
+
+			if (start + exact > this.byteLength) {
+				if (!this.resizable) {
+					throw new RangeError("Buffer overflow");
+				}
+
+				this.expand(Math.max(start + exact - this.byteLength, this.byteLength));
+			}
+		}
+
+		const written = utf8Write ? utf8Write.call(this.buffer, text, start) : BufferWriter.TEXT_ENCODER.encodeInto(text, this.buffer.subarray(start)).written;
+
+		if (writeSize) {
+			if (written > 65535) {
+				throw new RangeError(`String of ${written} bytes doesn't fit in a 2-byte size prefix`);
 			}
 
-			const subarray = this.buffer.subarray(offset);
-			const data = BufferWriter.TEXT_ENCODER.encodeInto(text, subarray);
-			const byteLength = data.written;
-			this.length = Math.max(this.length, offset + byteLength);
+			this.uint16(offset, written);
+		}
 
-			if (data.read < text.length) {
-				throw new RangeError(`Buffer overflow ${data.read}/${text.length} chars encoded)`);
-			}
+		if (!advance || offset !== this.offset) {
+			this.furthest = Math.max(this.furthest, start + written);
+		}
 
-			if (writeSize) {
-				this.writeUint16(byteLength, offset - 2, advance);
-			}
-
-			if (advance) {
-				this.advanceBytes(offset + byteLength - this.offset);
-			}
+		if (advance) {
+			this.advanceBytes(start + written - this.offset);
 		}
 
 		return this;
@@ -844,7 +892,7 @@ export class BufferWriter {
 		this.byteLength = this.buffer.byteLength;
 
 		this.offset = Math.min(this.offset, this.byteLength);
-		this.length = Math.min(this.length, this.byteLength);
+		this.furthest = Math.min(this.furthest, this.byteLength);
 
 		return this.byteLength;
 	}
@@ -873,8 +921,6 @@ export class BufferWriter {
 		} else if (offset < 0) {
 			throw new RangeError(`Cannot write at offset ${offset}, offset must be positive`);
 		}
-
-		this.length = Math.max(this.length, offset + bytes);
 
 		return this;
 	}
@@ -929,6 +975,10 @@ export class BufferWriter {
 
 	private advance(bytes: number = 1, offset: number = this.offset, advance: boolean = offset === this.offset): this {
 		this.ensureCapacity(bytes, offset);
+
+		if (offset !== this.offset) {
+			this.furthest = Math.max(this.furthest, offset + bytes);
+		}
 
 		if (advance) {
 			this.advanceBytes(bytes);
@@ -1007,6 +1057,8 @@ export class BufferWriter {
 			throw new RangeError(`Byte offset ${byteOffset} cannot be negative`);
 		}
 
+		this.furthest = Math.max(this.furthest, this.offset);
+
 		const deltaByte = byteOffset - this.offset;
 
 		this.advance(deltaByte);
@@ -1037,7 +1089,7 @@ export class BufferWriter {
 			writer.bitOffset = this.bitOffset;
 			writer.bitIndex = this.bitIndex;
 			writer.offset = this.offset;
-			writer.length = this.length;
+			writer.furthest = this.furthest;
 		}
 
 		return writer;
@@ -1054,6 +1106,7 @@ export class BufferWriter {
 	 * writer.reset(10); // Reset to offset 10
 	 */
 	public reset(offset: number = 0): this {
+		this.furthest = Math.max(this.furthest, this.offset); // remember how far we got before jumping back
 		this.offset = offset;
 		this.bitOffset = offset;
 		this.bitIndex = 0;
@@ -1155,6 +1208,10 @@ export class BufferWriter {
 		result += "]";
 
 		return result;
+	}
+
+	public get length(): number {
+		return Math.max(this.furthest, this.offset);
 	}
 
 	/**
