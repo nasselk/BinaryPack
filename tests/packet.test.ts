@@ -14,7 +14,7 @@ describe("realistic packets", () => {
 		writer.writeInt(-250);
 		writer.writeFloat32(3.25);
 		writer.writeUint16(0xbeef);
-		writer.writeBuffer(new Uint8Array([9, 8, 7]), true);
+		writer.writeUint16(3).writeBytes(new Uint8Array([9, 8, 7]));
 
 		const reader = new BufferReader(writer.bytes);
 
@@ -24,7 +24,7 @@ describe("realistic packets", () => {
 		expect(reader.readInt()).toBe(-250);
 		expect(reader.readFloat32()).toBe(3.25);
 		expect(reader.readUint16()).toBe(0xbeef);
-		expect([...reader.readBuffer(true)]).toEqual([9, 8, 7]);
+		expect([...reader.readBytes(true)]).toEqual([9, 8, 7]);
 		expect(reader.remainingBytes).toBe(0);
 	});
 

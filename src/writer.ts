@@ -1,4 +1,4 @@
-import { endianness, createBuffer, type Buffers, type BufferSlice } from "./buffer.js";
+import { endianness, createBuffer, type Buffers, type TypedArray } from "./buffer.js";
 import { setFloat16, setFloat32, setFloat64 } from "./bytes.js";
 import { clamp, SIGNED_MAX, SIGNED_MIN, UNSIGNED_MAX, utf8Write } from "./utils.js";
 
@@ -12,7 +12,7 @@ import { clamp, SIGNED_MAX, SIGNED_MIN, UNSIGNED_MAX, utf8Write } from "./utils.
  * - Bit-level operations for space-efficient data encoding
  * - Variable-length integers (LEB128)
  * - Text strings with optional size prefixes
- * - Raw buffer writing
+ * - Raw byte writing
  * - Automatic buffer expansion (when resizable)
  *
  * @see {@link BufferReader} for the companion reader class
@@ -784,46 +784,49 @@ export class BufferWriter {
 	}
 
 	/**
-	 * Writes a buffer of bytes to the current position.
+	 * Copies a range of elements from a typed array to the current position and advances the write position.
 	 *
-	 * @param buffer - The buffer to write. Can be any buffer type.
-	 * @param writeSize - If true, writes a uint16 size prefix before the buffer data.
-	 * @param slice - Optional byte range of the source to write. Defaults to the whole buffer.
-	 * @param offset - The byte offset to write to.
-	 * @param advance - Whether to advance the write position.
+	 * @param source - The typed array to copy from.
+	 * @param start - Index of the first element to copy. Defaults to 0.
+	 * @param end - Index after the last element to copy. Defaults to `source.length`.
 	 * @returns This writer for method chaining.
 	 *
-	 * @throws {RangeError} If the slice falls outside the source buffer, or if buffer overflow occurs and the buffer is not resizable.
+	 * @throws {RangeError} If buffer overflow occurs and the buffer is not resizable.
+	 *
+	 * @remarks
+	 * `start` and `end` are element indices, as in `TypedArray.subarray`, and each element becomes one byte.
+	 * Values from non-Uint8Array sources are converted to uint8 (e.g. `Uint16Array [0x0201]` writes `0x01`),
+	 * so pass a byte view such as `new Uint8Array(array.buffer, array.byteOffset, array.byteLength)` to copy raw bytes.
+	 * No size prefix is written; call {@link writeUint16} first if the reader needs one.
 	 *
 	 * @example
-	 * // Write buffer without size prefix
-	 * writer.writeBuffer(new Uint8Array([1, 2, 3]));
+	 * // Write all bytes
+	 * writer.writeBytes(new Uint8Array([1, 2, 3]));
 	 *
-	 * // Write buffer with 2-byte size prefix
-	 * writer.writeBuffer(new Uint8Array([1, 2, 3]), true);
-	 *
-	 * // Write only 3 bytes, starting at byte 2 of the source
-	 * writer.writeBuffer(data, false, { start: 2, byteLength: 3 });
+	 * // Write bytes 2, 3 and 4 of the source
+	 * writer.writeBytes(data, 2, 5);
 	 *
 	 * // Write everything from byte 4 onwards
-	 * writer.writeBuffer(data, false, { start: 4 });
+	 * writer.writeBytes(data, 4);
+	 *
+	 * // Write with a 2-byte size prefix, readable with `reader.readBytes(true)`
+	 * writer.writeUint16(data.length).writeBytes(data);
 	 */
-	public writeBuffer(buffer: Buffers, writeSize: boolean = false, slice?: BufferSlice, offset?: number, advance?: boolean): this {
-		offset = (offset ?? this.offset) | 0;
-
-		// Normalises to a byte view, so multi-byte element types are copied as raw bytes and the slice is applied
-		const source = createBuffer(buffer, false, slice);
-		const length = source.byteLength;
-
-		if (writeSize) {
-			this.writeUint16(length, offset, advance);
-
-			offset += 2;
+	public writeBytes(source: TypedArray, start: number = 0, end: number = source.length): this {
+		if (start < 0 || end > source.length || start > end) {
+			throw new RangeError(`Invalid range [${start}, ${end}) for source of length ${source.length}`);
 		}
 
-		this.advance(length, offset, advance);
+		const length = end - start;
 
-		this.buffer.set(source, offset);
+		this.ensureCapacity(length);
+
+		const target = this.buffer;
+		const at = this.offset;
+
+		target.set(source.subarray(start, end), at);
+
+		this.advanceBytes(length);
 
 		return this;
 	}

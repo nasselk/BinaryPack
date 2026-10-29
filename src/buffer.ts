@@ -11,6 +11,7 @@ const enum Endianness {
 	LITTLE,
 }
 
+export type TypedArray = Uint8Array | Int8Array | Uint16Array | Int16Array | Float16Array | Uint32Array | Int32Array | Float32Array | Float64Array;
 export type BufferSlice = { readonly start: number; readonly byteLength?: number };
 
 export function createBuffer(allocation: number | Buffers | ArrayLike<number> = 0, clone: boolean = false, slice?: BufferSlice, clearMemory: boolean = true): Uint8Array {

@@ -597,7 +597,7 @@ export class BufferReader {
 	}
 
 	/**
-	 * Reads a buffer with size prefix.
+	 * Reads bytes with a uint16 size prefix.
 	 *
 	 * @param readSize - If true, reads a uint16 size prefix first.
 	 * @param clone - If true, returns a copy; if false, returns a view.
@@ -608,10 +608,10 @@ export class BufferReader {
 	 * @throws {RangeError} If attempting to read beyond the buffer bounds.
 	 *
 	 * @example
-	 * // Read buffer with 2-byte size prefix
-	 * const buffer = reader.readBuffer(true);
+	 * // Read bytes with a 2-byte size prefix
+	 * const buffer = reader.readBytes(true);
 	 */
-	public readBuffer(readSize?: boolean, clone?: boolean, advance?: boolean, offset?: number): Uint8Array;
+	public readBytes(readSize?: boolean, clone?: boolean, advance?: boolean, offset?: number): Uint8Array;
 
 	/**
 	 * Reads a fixed number of bytes as a buffer.
@@ -626,17 +626,17 @@ export class BufferReader {
 	 *
 	 * @example
 	 * // Read 10 bytes
-	 * const buffer = reader.readBuffer(10);
+	 * const buffer = reader.readBytes(10);
 	 *
 	 * // Read remaining bytes
-	 * const rest = reader.readBuffer();
+	 * const rest = reader.readBytes();
 	 *
 	 * // Read and clone to avoid shared references
-	 * const copy = reader.readBuffer(5, true);
+	 * const copy = reader.readBytes(5, true);
 	 */
-	public readBuffer(bytes?: number, clone?: boolean, advance?: boolean, offset?: number): Uint8Array;
+	public readBytes(bytes?: number, clone?: boolean, advance?: boolean, offset?: number): Uint8Array;
 
-	public readBuffer(size?: number | boolean, clone: boolean = false, advance: boolean = true, offset?: number): Uint8Array {
+	public readBytes(size?: number | boolean, clone: boolean = false, advance: boolean = true, offset?: number): Uint8Array {
 		offset = (offset ?? this.offset) | 0;
 
 		let length: number;

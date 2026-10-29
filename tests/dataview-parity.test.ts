@@ -127,7 +127,7 @@ describe.each([
 
 		writer.writeUint64(1n);
 		writer.writeFloat16(2.5);
-		writer.writeBuffer(new Uint8Array(100));
+		writer.writeBytes(new Uint8Array(100));
 		writer.writeInt64(-5n);
 		writer.writeFloat16(-0.5);
 
@@ -135,7 +135,7 @@ describe.each([
 
 		expect(reader.readUint64()).toBe(1n);
 		expect(reader.readFloat16()).toBe(2.5);
-		reader.readBuffer(100);
+		reader.readBytes(100);
 		expect(reader.readInt64()).toBe(-5n);
 		expect(reader.readFloat16()).toBe(-0.5);
 	});

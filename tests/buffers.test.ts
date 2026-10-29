@@ -6,97 +6,76 @@ import { BufferWriter } from "../src/writer.js";
 
 const DATA = () => new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7]);
 
-describe("writeBuffer", () => {
-	test("writes the whole buffer by default", () => {
+describe("writeBytes", () => {
+	test("writes the whole array by default", () => {
 		const writer = new BufferWriter();
 
-		writer.writeBuffer(DATA());
+		writer.writeBytes(DATA());
 
 		expect([...writer.bytes]).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
 	});
 
 	test.each([
-		["start only", { start: 4 }, [4, 5, 6, 7]],
-		["start and byteLength", { start: 2, byteLength: 3 }, [2, 3, 4]],
-		["empty slice", { start: 0, byteLength: 0 }, []],
-		["full slice", { start: 0, byteLength: 8 }, [0, 1, 2, 3, 4, 5, 6, 7]],
-		["tail", { start: 7 }, [7]],
-	])("writes a partial buffer: %s", (_name, slice, expected) => {
+		["start only", 4, undefined, [4, 5, 6, 7]],
+		["start and end", 2, 5, [2, 3, 4]],
+		["empty range", 0, 0, []],
+		["full range", 0, 8, [0, 1, 2, 3, 4, 5, 6, 7]],
+		["tail", 7, undefined, [7]],
+	])("writes a partial array: %s", (_name, start, end, expected) => {
 		const writer = new BufferWriter();
 
-		writer.writeBuffer(DATA(), false, slice);
+		writer.writeBytes(DATA(), start, end);
 
 		expect([...writer.bytes]).toEqual(expected);
 	});
 
-	test("accepts every supported source type", () => {
-		const data = DATA();
-
-		const fromArrayBuffer = new BufferWriter();
-		const fromView = new BufferWriter();
-		const fromReader = new BufferWriter();
-		const fromWriter = new BufferWriter();
-
-		fromArrayBuffer.writeBuffer(data.buffer, false, { start: 6 });
-		fromView.writeBuffer(data.subarray(2), false, { start: 1, byteLength: 2 });
-		fromReader.writeBuffer(new BufferReader(data), false, { start: 6 });
-		fromWriter.writeBuffer(new BufferWriter(data), false, { start: 6 });
-
-		expect([...fromArrayBuffer.bytes]).toEqual([6, 7]);
-		expect([...fromView.bytes]).toEqual([3, 4]);
-		expect([...fromReader.bytes]).toEqual([6, 7]);
-		expect([...fromWriter.bytes]).toEqual([6, 7]);
-	});
-
-	test("copies multi-byte typed arrays as raw bytes", () => {
-		const writer = new BufferWriter(0, true, true);
-
-		writer.writeBuffer(new Uint16Array([0x0201, 0x0403]));
-
-		expect([...writer.bytes]).toEqual([1, 2, 3, 4]);
-	});
-
-	test("size prefix records the slice length, not the source length", () => {
+	test("respects the bounds of a view at an offset", () => {
 		const writer = new BufferWriter();
 
-		writer.writeBuffer(DATA(), true, { start: 5 });
+		writer.writeBytes(DATA().subarray(2), 1, 3);
+
+		expect([...writer.bytes]).toEqual([3, 4]);
+	});
+
+	test("size prefix written with writeUint16 is readable by readBytes", () => {
+		const writer = new BufferWriter();
+		const data = DATA();
+
+		writer.writeUint16(3).writeBytes(data, 5);
 
 		const reader = new BufferReader(writer.bytes);
 
-		expect(reader.readUint16()).toBe(3);
-		expect([...reader.readBuffer()]).toEqual([5, 6, 7]);
+		expect([...reader.readBytes(true)]).toEqual([5, 6, 7]);
 	});
 
-	test("advances the write cursor by the slice length", () => {
+	test("advances the write cursor by the range length", () => {
 		const writer = new BufferWriter();
 
 		writer.writeUint8(9);
-		writer.writeBuffer(DATA(), false, { start: 1, byteLength: 2 });
+		writer.writeBytes(DATA(), 1, 3);
 		writer.writeUint8(9);
 
 		expect([...writer.bytes]).toEqual([9, 1, 2, 9]);
 	});
 
-	test.each([
-		["slice longer than the source", { start: 6, byteLength: 5 }],
-		["start past the end", { start: 99 }],
-		["negative start", { start: -1 }],
-		["negative byteLength", { start: 0, byteLength: -1 }],
-	])("throws on %s", (_name, slice) => {
-		expect(() => new BufferWriter().writeBuffer(DATA(), false, slice)).toThrow(RangeError);
+	test("grows a resizable buffer", () => {
+		const writer = new BufferWriter(2, true);
+
+		writer.writeBytes(DATA());
+
+		expect([...writer.bytes]).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
 	});
 
-	test("throws on a negative start even when the view sits at an offset", () => {
-		// The view's own bounds must be respected, not just those of the underlying ArrayBuffer
-		expect(() => new BufferWriter().writeBuffer(DATA().subarray(4), false, { start: -2 })).toThrow(RangeError);
+	test("throws when a fixed buffer overflows", () => {
+		expect(() => new BufferWriter(4, false).writeBytes(DATA())).toThrow(RangeError);
 	});
 });
 
-describe("readBuffer", () => {
+describe("readBytes", () => {
 	test("reads a fixed number of bytes", () => {
 		const reader = new BufferReader(DATA());
 
-		expect([...reader.readBuffer(3)]).toEqual([0, 1, 2]);
+		expect([...reader.readBytes(3)]).toEqual([0, 1, 2]);
 		expect(reader.offset).toBe(3);
 	});
 
@@ -105,20 +84,20 @@ describe("readBuffer", () => {
 
 		reader.readUint32();
 
-		expect([...reader.readBuffer()]).toEqual([4, 5, 6, 7]);
+		expect([...reader.readBytes()]).toEqual([4, 5, 6, 7]);
 	});
 
 	test("reads a size-prefixed buffer", () => {
 		const writer = new BufferWriter();
 
-		writer.writeBuffer(new Uint8Array([9, 8, 7]), true);
+		writer.writeUint16(3).writeBytes(new Uint8Array([9, 8, 7]));
 
-		expect([...new BufferReader(writer.bytes).readBuffer(true)]).toEqual([9, 8, 7]);
+		expect([...new BufferReader(writer.bytes).readBytes(true)]).toEqual([9, 8, 7]);
 	});
 
 	test("shares memory unless cloned", () => {
 		const source = DATA();
-		const view = new BufferReader(source).readBuffer(2, false);
+		const view = new BufferReader(source).readBytes(2, false);
 
 		view[0] = 99;
 
@@ -127,7 +106,7 @@ describe("readBuffer", () => {
 
 	test("clone produces an independent copy", () => {
 		const source = DATA();
-		const copy = new BufferReader(source).readBuffer(2, true);
+		const copy = new BufferReader(source).readBytes(2, true);
 
 		copy[0] = 99;
 

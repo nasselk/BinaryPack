@@ -32,7 +32,6 @@
 	},
 	"scripts": {
 		"build": "rm -rf dist && tsc",
-		"test": "bun test",
 		"format": "biome format --write",
 		"lint": "biome lint --write",
 		"biome:check": "biome check --write"

@@ -118,8 +118,8 @@ console.log(decoded); // ~75.5
 
 ## API highlights
 
-- [`BufferWriter`](./src/writer.ts) — write methods: `writeInt8/16/32/64` `writeUint8/16/32/64`, `writeFloat32/64/16`, `writeBits`, `writeString`, `writeBuffer`, `writeInt`, `writeUint` (LEB128)
-- [`BufferReader`](./src/reader.ts) — read methods: `readUint8/16/32/64`, `readFloat32/64/16`, `readBits`, `readString`, `readBuffer`, `readInt` `readUint` (LEB128)
+- [`BufferWriter`](./src/writer.ts) — write methods: `writeInt8/16/32/64` `writeUint8/16/32/64`, `writeFloat32/64/16`, `writeBits`, `writeString`, `writeBytes`, `writeInt`, `writeUint` (LEB128)
+- [`BufferReader`](./src/reader.ts) — read methods: `readUint8/16/32/64`, `readFloat32/64/16`, `readBits`, `readString`, `readBytes`, `readInt` `readUint` (LEB128)
 - Precision helpers: `BufferWriter.toPrecision()` / `BufferReader.fromPrecision()`
 - Advancement visualisation: `toString` shows a formatted representation of the buffer reading/writing, taking in account the internal state
 

@@ -494,7 +494,7 @@ export class BufferReader {
         const zigzag = this.readUint(advance, offset);
         return zigzag % 2 === 0 ? zigzag / 2 : -(zigzag + 1) / 2;
     }
-    readBuffer(size, clone = false, advance = true, offset) {
+    readBytes(size, clone = false, advance = true, offset) {
         offset = (offset ?? this.offset) | 0;
         let length;
         if (size === true) {

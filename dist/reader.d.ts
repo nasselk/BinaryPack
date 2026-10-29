@@ -313,7 +313,7 @@ export declare class BufferReader {
      */
     readInt(advance?: boolean, offset?: number): number;
     /**
-     * Reads a buffer with size prefix.
+     * Reads bytes with a uint16 size prefix.
      *
      * @param readSize - If true, reads a uint16 size prefix first.
      * @param clone - If true, returns a copy; if false, returns a view.
@@ -324,10 +324,10 @@ export declare class BufferReader {
      * @throws {RangeError} If attempting to read beyond the buffer bounds.
      *
      * @example
-     * // Read buffer with 2-byte size prefix
-     * const buffer = reader.readBuffer(true);
+     * // Read bytes with a 2-byte size prefix
+     * const buffer = reader.readBytes(true);
      */
-    readBuffer(readSize?: boolean, clone?: boolean, advance?: boolean, offset?: number): Uint8Array;
+    readBytes(readSize?: boolean, clone?: boolean, advance?: boolean, offset?: number): Uint8Array;
     /**
      * Reads a fixed number of bytes as a buffer.
      *
@@ -341,15 +341,15 @@ export declare class BufferReader {
      *
      * @example
      * // Read 10 bytes
-     * const buffer = reader.readBuffer(10);
+     * const buffer = reader.readBytes(10);
      *
      * // Read remaining bytes
-     * const rest = reader.readBuffer();
+     * const rest = reader.readBytes();
      *
      * // Read and clone to avoid shared references
-     * const copy = reader.readBuffer(5, true);
+     * const copy = reader.readBytes(5, true);
      */
-    readBuffer(bytes?: number, clone?: boolean, advance?: boolean, offset?: number): Uint8Array;
+    readBytes(bytes?: number, clone?: boolean, advance?: boolean, offset?: number): Uint8Array;
     /**
      * Reads a UTF-8 encoded text string with size prefix.
      *
