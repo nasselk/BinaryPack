@@ -95,7 +95,7 @@ if (read("git", "tag", "--list", tag) !== "" || read("git", "ls-remote", "--tags
 console.log(`\n📦 ${current} → ${next} (${level})${dryRun ? " — dry run" : ""}`);
 
 run("bun", "check");
-run("bun", "run", "test");
+run("bun", "test");
 
 if (dryRun) {
 	console.log(`\n✅ Dry run passed. A release would build, commit "Release ${tag}", tag ${tag} and push both to ${REMOTE}.`);
