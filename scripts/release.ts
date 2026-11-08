@@ -19,9 +19,9 @@ function attempt(command: string, ...args: string[]): boolean {
 }
 
 function run(command: string, ...args: string[]): void {
-	//if (!attempt(command, ...args)) {
-	fail(`${command} ${args.join(" ")} failed`);
-	//}
+	if (!attempt(command, ...args)) {
+		fail(`${command} ${args.join(" ")} failed`);
+	}
 }
 
 function read(command: string, ...args: string[]): string {
