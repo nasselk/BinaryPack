@@ -3,7 +3,7 @@
 	"name": "@nasselk/binarypack",
 	"author": "nasselk",
 	"description": "Typescript byte packing library with bit level control.",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"license": "MIT",
 	"homepage": "https://github.com/nasselk/BinaryPack",
 	"repository": {
