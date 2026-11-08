@@ -18,10 +18,10 @@
 		"noImplicitOverride": true,
 		"noUnusedLocals": true,
 		"esModuleInterop": true,
-		"rootDir": "./src/",
+		"rootDir": "./",
 		"outDir": "./dist/",
 		"lib": ["ESNext", "DOM"],
-		"types": ["node", "bun"]
+		"types": ["bun"]
 	},
-	"include": ["src/**/*.ts"]
+	"include": ["src/**/*.ts", "scripts/**/*.ts"]
 }
