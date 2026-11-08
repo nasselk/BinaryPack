@@ -94,7 +94,7 @@ if (read("git", "tag", "--list", tag) !== "" || read("git", "ls-remote", "--tags
 
 console.log(`\n📦 ${current} → ${next} (${level})${dryRun ? " — dry run" : ""}`);
 
-run("bun", "run", "types:check");
+run("bun", "check");
 run("bun", "run", "test");
 
 if (dryRun) {
