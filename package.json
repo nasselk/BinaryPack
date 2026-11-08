@@ -33,8 +33,6 @@
 	"scripts": {
 		"build": "rm -rf dist && tsc",
 		"release": "bun ./scripts/release.ts",
-		"format": "biome format --write",
-		"lint": "biome lint --write",
 		"biome:check": "biome check --write"
 	},
 	"devDependencies": {

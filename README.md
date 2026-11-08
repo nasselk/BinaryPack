@@ -133,7 +133,7 @@ Requirements: Node.js (v20+ recommended) and npm.
 bun install         # install dev dependencies
 bun test            # run tests
 bun run build       # compile src/ -> dist/ (JS + .d.ts + sourcemaps)
-bun run type:check  # type-check without emitting
+bun check  			# type-check without emitting
 bun run biome:check # format and lint
 ```
 
